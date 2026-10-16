@@ -1,7 +1,9 @@
 /**
- * Provider configurations for OpenRouter and NVIDIA
+ * Provider configurations for OpenRouter, NVIDIA and compatible providers
  * Defines available models, their capabilities, and pricing tiers
  */
+
+import { buildCompatibleProviders } from './freeProviders.js';
 
 export const PROVIDERS = {
   openrouter: {
@@ -228,6 +230,14 @@ export const PROVIDERS = {
     },
   },
 };
+
+/**
+ * AUTO-ACTIVATION: any provider from the free-provider list that has its
+ * key configured in .env (or, for key-less local servers, its base URL)
+ * is merged into the catalog. Catálogo final = OpenRouter + NVIDIA +
+ * todos os provedores configurados (groq, gemini, ollama, custom, ...).
+ */
+Object.assign(PROVIDERS, buildCompatibleProviders());
 
 export const MODEL_TIERS = ['free', 'low-cost', 'premium'];
 

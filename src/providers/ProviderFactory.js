@@ -5,6 +5,7 @@
 
 import { OpenRouterClient } from './OpenRouterClient.js';
 import { NVIDIAClient } from './NVIDIAClient.js';
+import { OpenAICompatibleClient } from './OpenAICompatibleClient.js';
 import { PROVIDERS, getModelInfo } from '../config/providers.js';
 
 export class ProviderFactory {
@@ -16,22 +17,23 @@ export class ProviderFactory {
   initialize(config = {}) {
     if (this.initialized) return;
 
-    // Initialize OpenRouter
-    if (PROVIDERS.openrouter.apiKey) {
-      this.clients.set('openrouter', new OpenRouterClient({
-        baseURL: PROVIDERS.openrouter.baseURL,
-        apiKey: PROVIDERS.openrouter.apiKey,
-        headers: PROVIDERS.openrouter.headers,
-        timeout: config.timeout,
-      }));
-    }
+    // Register every provider in the catalog that is actually available:
+    // - providers with an API key (OpenRouter, NVIDIA, groq, gemini, ...)
+    // - key-less providers (ollama, custom) already filtered by config
+    // Providers without a key in .env are simply NOT registered.
+    for (const [providerId, provider] of Object.entries(PROVIDERS)) {
+      const needsKey = provider.requiresKey !== false;
+      if (needsKey && !provider.apiKey) continue;
 
-    // Initialize NVIDIA
-    if (PROVIDERS.nvidia.apiKey) {
-      this.clients.set('nvidia', new NVIDIAClient({
-        baseURL: PROVIDERS.nvidia.baseURL,
-        apiKey: PROVIDERS.nvidia.apiKey,
-        headers: PROVIDERS.nvidia.headers,
+      const ClientClass =
+        providerId === 'openrouter' ? OpenRouterClient :
+        providerId === 'nvidia' ? NVIDIAClient :
+        OpenAICompatibleClient;
+
+      this.clients.set(providerId, new ClientClass({
+        baseURL: provider.baseURL,
+        apiKey: provider.apiKey || 'not-needed', // for key-less local providers
+        headers: provider.headers,
         timeout: config.timeout,
       }));
     }
@@ -50,7 +52,12 @@ export class ProviderFactory {
     if (modelInfo && modelInfo.provider) {
       return this.clients.get(modelInfo.provider);
     }
-    // Fallback to string matching
+    // Fallback: use the model prefix as provider id (groq/, ollama/, custom/, ...)
+    const prefixMatch = modelId.match(/^([^/]+)/);
+    if (prefixMatch && this.clients.has(prefixMatch[1])) {
+      return this.clients.get(prefixMatch[1]);
+    }
+    // Fallback to string matching for NVIDIA-hosted models
     if (modelId.startsWith('nvidia/') || modelId.startsWith('nv-mistralai/') || modelId === 'mistralai/mistral-large') {
       return this.clients.get('nvidia');
     }
@@ -61,6 +68,10 @@ export class ProviderFactory {
     const modelInfo = getModelInfo(modelId);
     if (modelInfo && modelInfo.provider) {
       return modelInfo.provider;
+    }
+    const prefixMatch = modelId.match(/^([^/]+)/);
+    if (prefixMatch && this.clients.has(prefixMatch[1])) {
+      return prefixMatch[1];
     }
     if (modelId.startsWith('nvidia/') || modelId.startsWith('nv-mistralai/') || modelId === 'mistralai/mistral-large') {
       return 'nvidia';

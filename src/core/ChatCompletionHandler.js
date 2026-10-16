@@ -77,9 +77,10 @@ export class ChatCompletionHandler {
     const userMessages = messages.filter(m => m.role !== 'system');
     const finalMessages = this.rotationManager.buildMessagesWithContext(conversationId, userMessages, systemPrompt);
 
-    // Prepare payload
+    // Prepare payload (upstream model id is sent to the provider; the
+    // prefixed catalog id chain `groq/llama-...` stays internal)
     const payload = {
-      model: targetModel,
+      model: modelInfo.upstreamId || targetModel,
       messages: finalMessages,
       stream: isStreaming,
       temperature: temperature ?? 0.7,
@@ -155,8 +156,9 @@ export class ChatCompletionHandler {
           continue;
         }
 
-        // Update payload with new model
-        payload.model = currentModel;
+        // Update payload with new model (upstream id for the new provider)
+        const rotatedInfo = getModelInfo(currentModel);
+        payload.model = rotatedInfo?.upstreamId || currentModel;
 
         // Rebuild messages with context for new model
         const systemPrompt = this.extractSystemPrompt(originalMessages);
