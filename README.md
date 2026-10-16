@@ -97,6 +97,39 @@ O servidor estará disponível em:
 - **Health**: `http://localhost:3000/health`
 - **Status Rotação**: `http://localhost:3000/v1/rotation/status`
 
+## 🤖 Provedores Extras Prontos (auto-ativados)
+
+O servidor já vem com uma lista de provedores **OpenAI-compatíveis**. Um provedor só é ativado quando a chave dele existe no `.env` — comentado/sem chave = desativado. Sem alterar código:
+
+| Provedor | Variável no `.env` | Free? | Onde pegar a chave |
+|---|---|---|---|
+| **Groq** (Llama ultra-rápido) | `GROQ_API_KEY` | ✅ generoso | console.groq.com/keys |
+| **Google Gemini** (OpenAI endpoint) | `GEMINI_API_KEY` | ✅ | aistudio.google.com/app/apikey |
+| **Cerebras** (inferência muito rápida) | `CEREBRAS_API_KEY` | ✅ | cloud.cerebras.ai |
+| **Mistral** | `MISTRAL_API_KEY` | ✅ experimental | console.mistral.ai |
+| **Together AI** | `TOGETHER_API_KEY` | ✅ modelos a $0 | api.together.ai |
+| **HuggingFace Router** | `HUGGINGFACE_API_KEY` | ✅ limitado | huggingface.co/settings/tokens |
+| **DeepSeek** | `DEEPSEEK_API_KEY` | 💲 barato | platform.deepseek.com |
+| **OpenAI** | `OPENAI_API_KEY` | 💲 pago (reserva final) | platform.openai.com |
+| **Ollama** (local, sem chave!) | `OLLAMA_BASE_URL` + `OLLAMA_MODELS` | ✅ grátis | ollama.com/download |
+| **LM Studio** (local, sem chave!) | `LMSTUDIO_BASE_URL` + `LMSTUDIO_MODELS` | ✅ grátis | lmstudio.ai |
+| **Seu próprio servidor** ✨ | `CUSTOM_AI_BASE_URL` + `CUSTOM_AI_MODELS` | — | qualquer endpoint OpenAI-compatible |
+
+Como funciona:
+
+```env
+# Desativado (comentado)
+#GROQ_API_KEY=
+
+# Ativado — na próxima inicialização o log mostra:
+# [ProviderFactory] Initialized 4 providers: openrouter, nvidia, groq, ...
+GROQ_API_KEY=gsk_xxxxx
+```
+
+Todos os modelos dos provedores ativados entram automaticamente na rotação do `model: "auto"` (preservando contexto ao trocar). Para dar prioridade a algum, adicione o id prefixado em `FREE_MODELS_PRIORITY` (ex: `groq/llama-3.3-70b-versatile`).
+
+Para o **Ollama**: instale, rode `ollama serve` e preencha por exemplo `OLLAMA_MODELS=llama3.1:8b` — os modelos locais entram na rotação como fallback gratuito, direto do seu PC.
+
 ## 🔌 Configuração no VSCode
 
 ### Continue (Recomendado)
@@ -281,12 +314,14 @@ local-ai-server/
 │   ├── index.js               # Entrada (carrega dotenv e inicia servidor)
 │   ├── server.js              # Servidor Express principal
 │   ├── config/
-│   │   └── providers.js       # Configuração de modelos e provedores
+│   │   ├── providers.js       # Catálogo de modelos e provedores
+│   │   └── freeProviders.js   # ✨ Lista pronta de provedores gratuitos (auto-ativação)
 │   ├── core/
 │   │   ├── ModelRotationManager.js  # Lógica de rotação
 │   │   └── ChatCompletionHandler.js # Orquestração de chat
 │   └── providers/
 │       ├── BaseProviderClient.js    # Classe base
+│       ├── OpenAICompatibleClient.js # ✨ Cliente genérico OpenAI-compatible
 │       ├── OpenRouterClient.js      # Cliente OpenRouter
 │       ├── NVIDIAClient.js          # Cliente NVIDIA
 │       └── ProviderFactory.js       # Factory de provedores
