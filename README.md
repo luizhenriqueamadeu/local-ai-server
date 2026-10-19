@@ -73,8 +73,9 @@ Perfeito para uso corporativo: cada pessoa entra no chat clicando no próprio av
 
 1. No PC do servidor, abra o chat e clique **⚙️ → aba 👥 Usuários**
 2. Cadastre os usuários (nome + foto opcional): "Setor Financeiro", "RH", "Suporte"...
-3. De qualquer PC/celular da rede, quem abrir `http://SEU_IP:3000` vê a tela **"Quem está usando?"** com os avatares
-4. Cada usuário clica no próprio perfil → conversas próprias, isoladas das outras
+3. **Senha opcional por usuário**: defina no cadastro ou depois (aba 👥 → campo senha). Quem tiver senha vê 🔒 no avatar e precisa digitá-la para entrar. As senhas ficam guardadas como **hash no servidor** (nunca em texto puro, nunca expostas). Recarregar a página pede a senha de novo.
+4. De qualquer PC/celular da rede, quem abrir `http://SEU_IP:3000` vê a tela **"Quem está usando?"** com os avatares
+5. Cada usuário clica no próprio perfil → conversas próprias, isoladas das outras
 
 - As conversas ficam salvas na pasta `data/` do servidor (nunca sobe para o GitHub) — trocar de máquina não perde o histórico.
 - É possível ativar/remover/editar usuários e apagar as conversas de alguém a qualquer momento.

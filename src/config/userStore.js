@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { randomUUID } from 'crypto';
+import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', '..', 'data');
@@ -25,6 +25,23 @@ function ensureDirs() {
 
 const AVATAR_MAX_CHARS = 300000; // ~220KB data URL
 const MAX_CONVERSATIONS = 100;
+const PASSWORD_MAX = 100;
+
+// Passwords are stored as scrypt hashes ("salt:hash"), never in plain text
+function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(String(password), salt, 32).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function checkPassword(password, stored) {
+  if (!stored || typeof stored !== 'string') return false;
+  const [salt, hash] = stored.split(':');
+  if (!salt || !hash) return false;
+  const candidate = scryptSync(String(password || ''), salt, 32);
+  const expected = Buffer.from(hash, 'hex');
+  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+}
 
 const COLORS = ['#8a7ffc', '#3fb950', '#f78166', '#4cc9f0', '#f72585', '#ffd166', '#06d6a0', '#b388ff', '#ff8fa3', '#7dd3fc'];
 
@@ -47,12 +64,22 @@ export function getUsers() {
   }
 }
 
+// Public shape: never exposes the hash, shows only hasPassword flag
+export function publicUser(user) {
+  const { passwordHash, ...rest } = user || {};
+  return { ...rest, hasPassword: Boolean(user?.passwordHash) };
+}
+
+export function publicUsers() {
+  return getUsers().map(publicUser);
+}
+
 function saveUsers(list) {
   ensureDirs();
   writeFileSync(usersPath, JSON.stringify(list, null, 2));
 }
 
-export function addUser({ name, avatar } = {}) {
+export function addUser({ name, avatar, password } = {}) {
   const cleanName = String(name || '').trim().slice(0, 40);
   if (!cleanName) throw new Error('Nome é obrigatório');
   if (avatar && String(avatar).length > AVATAR_MAX_CHARS) throw new Error('Imagem muito grande (máx ~200KB)');
@@ -69,12 +96,16 @@ export function addUser({ name, avatar } = {}) {
     color: colorFor(cleanName),
     createdAt: new Date().toISOString(),
   };
+  if (password) {
+    if (String(password).length > PASSWORD_MAX) throw new Error('Senha muito longa');
+    user.passwordHash = hashPassword(password);
+  }
   list.push(user);
   saveUsers(list);
-  return user;
+  return publicUser(user);
 }
 
-export function updateUser(id, { name, avatar } = {}) {
+export function updateUser(id, { name, avatar, password } = {}) {
   if (!safeId(id)) throw new Error('id inválido');
   const list = getUsers();
   const user = list.find(u => u.id === id);
@@ -87,8 +118,17 @@ export function updateUser(id, { name, avatar } = {}) {
     if (avatar && String(avatar).length > AVATAR_MAX_CHARS) throw new Error('Imagem muito grande (máx ~200KB)');
     user.avatar = avatar ? String(avatar) : '';
   }
+  // password: undefined = unchanged | '' = remove | string = set new
+  if (password !== undefined) {
+    if (password) {
+      if (String(password).length > PASSWORD_MAX) throw new Error('Senha muito longa');
+      user.passwordHash = hashPassword(password);
+    } else {
+      delete user.passwordHash;
+    }
+  }
   saveUsers(list);
-  return user;
+  return publicUser(user);
 }
 
 export function removeUser(id) {
@@ -96,6 +136,16 @@ export function removeUser(id) {
   saveUsers(getUsers().filter(u => u.id !== id));
   try { unlinkSync(join(convsDir, `${id}.json`)); } catch { /* no conversations */ }
   return true;
+}
+
+// Login: verifies the password of a user picked on the avatar screen
+export function verifyUserPassword(id, password) {
+  if (!safeId(id)) return { ok: false, reason: 'not_found' };
+  const user = getUsers().find(u => u.id === id);
+  if (!user) return { ok: false, reason: 'not_found' };
+  if (!user.passwordHash) return { ok: true, user: publicUser(user) }; // no password required
+  if (checkPassword(password, user.passwordHash)) return { ok: true, user: publicUser(user) };
+  return { ok: false, reason: 'wrong_password' };
 }
 
 // ---------------- Conversations (per user) ----------------

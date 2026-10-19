@@ -16,7 +16,7 @@ import { ModelRotationManager } from './core/ModelRotationManager.js';
 import { getAllModels, rebuildProviders } from './config/providers.js';
 import { FREE_PROVIDER_TEMPLATES } from './config/freeProviders.js';
 import { updateEnvFile, maskSecret } from './config/envManager.js';
-import { getUsers, addUser, updateUser, removeUser, listConversations, saveConversation, deleteConversation, listProjects, addProject, updateProject, removeProject } from './config/userStore.js';
+import { getUsers, publicUsers, publicUser, addUser, updateUser, removeUser, verifyUserPassword, listConversations, saveConversation, deleteConversation, listProjects, addProject, updateProject, removeProject } from './config/userStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -409,9 +409,23 @@ app.post('/v1/config', configGuard, async (req, res) => {
 
 // ============ Users (web chat login, managed locally) ============
 
-// Public: the login screen needs the avatar list to pick "who am I"
+// Public: the login screen needs the avatar list to pick "who am I".
+// Hashes NEVER leave the server — only a hasPassword flag per user.
 app.get('/v1/users', (req, res) => {
-  res.json({ users: getUsers() });
+  res.json({ users: publicUsers() });
+});
+
+// Login check for users that have a password (called after clicking an avatar)
+app.post('/v1/users/verify', (req, res) => {
+  try {
+    const { id, password } = req.body || {};
+    const result = verifyUserPassword(id, password);
+    if (result.ok) return res.json({ success: true, user: result.user || null });
+    // Never reveal whether the user exists vs wrong password
+    res.status(401).json({ error: { message: 'Senha incorreta', type: 'auth_error' } });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
 });
 
 // Management: localhost-only (same guard as API keys)

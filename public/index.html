@@ -150,8 +150,13 @@
   .user-card:hover { border-color: var(--accent); background: var(--bg); }
   .user-card .avatar, .user-card .avatar-letter { width: 56px; height: 56px; font-size: 24px; }
   .user-card .uc-name { font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-card .uc-pass { display: flex; gap: 4px; width: 100%; }
+  .user-card .uc-pass input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 5px 8px; font-size: 12px; outline: none; }
+  .user-card .uc-err { font-size: 10px; color: var(--red); }
   .user-row { display: flex; align-items: center; gap: 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
   .user-row input[type=text] { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
+  .user-row input[type=password] { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; min-width: 110px; }
+  .user-row .rm-pass { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); cursor: pointer; white-space: nowrap; }
   .user-row .avatar, .user-row .avatar-letter { width: 40px; height: 40px; font-size: 18px; cursor: pointer; }
   .arrow-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px; flex-shrink: 0; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 10px 18px; font-size: 13px; display: none; z-index: 99; }
@@ -333,6 +338,7 @@
 'use strict';
 // ================= State =================
 const ME_KEY = 'las_me_v1';
+let sessionVerified = false; // becomes true after a successful password check this page load
 const GUEST_KEY = 'local_ai_conversations_v1';
 const $ = id => document.getElementById(id);
 let me = JSON.parse(localStorage.getItem(ME_KEY) || 'null');   // {id,name,avatar,color} | {id:'guest'}
@@ -501,6 +507,9 @@ async function loadUsers() {
   try { users = (await (await fetch('/v1/users')).json()).users || []; }
   catch { users = []; }
   if (me && me.id !== 'guest' && !users.find(u => u.id === me.id)) { me = null; localStorage.removeItem(ME_KEY); }
+  // Cached session doesn't bypass a password: user must re-enter it on page load
+  const stored = users.find(u => u.id === me?.id);
+  if (me && stored?.hasPassword && !sessionVerified) { me = null; localStorage.removeItem(ME_KEY); }
   if (!me) showPicker();
   else { renderUserChip(); await loadUserStores(); }
 }
@@ -512,20 +521,64 @@ function showPicker() {
   for (const u of users) {
     const c = document.createElement('div');
     c.className = 'user-card';
-    c.innerHTML = `${avatarHTML(u, 56)}<span class="uc-name">${esc(u.name)}</span>`;
-    c.onclick = () => selectUser(u);
+    c.innerHTML = `${avatarHTML(u, 56)}<span class="uc-name">${esc(u.name)}${u.hasPassword ? ' 🔒' : ''}</span>`;
+    c.onclick = () => selectUser(u, c);
     grid.appendChild(c);
   }
   const g = document.createElement('div');
   g.className = 'user-card';
   g.innerHTML = `<div class="avatar" style="width:56px;height:56px;background:var(--bg);border:1px dashed var(--muted);display:flex;align-items:center;justify-content:center;font-size:22px">👤</div><span class="uc-name">Convidado</span>`;
-  g.onclick = () => selectUser({ id: 'guest', name: 'Convidado' });
+  g.onclick = () => selectUser({ id: 'guest', name: 'Convidado' }, g);
   grid.appendChild(g);
 }
 
-async function selectUser(u) {
+function selectUser(u, card) {
   if (generating) abortCtrl?.abort();
+  if (u.hasPassword) { promptPassword(u, card); return; }
+  proceedSelect(u);
+}
+
+// Users with a password get an inline field on their card before entering
+function promptPassword(u, card) {
+  card.innerHTML = `${avatarHTML(u, 48)}<span class="uc-name">${esc(u.name)}</span>
+    <form class="uc-pass"><input type="password" placeholder="Senha" autocomplete="off" autofocus><button type="submit" class="btn primary" style="padding:4px 10px">→</button></form>`;
+  const form = card.querySelector('form');
+  const input = card.querySelector('input');
+  input.focus();
+  form.onsubmit = async ev => {
+    ev.preventDefault();
+    const btn = form.querySelector('button');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/v1/users/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: u.id, password: input.value }),
+      });
+      if (r.ok) {
+        const j = await r.json();
+        proceedSelect(j.user || u);
+      } else {
+        let errEl = card.querySelector('.uc-err');
+        if (!errEl) {
+          errEl = document.createElement('span');
+          errEl.className = 'uc-err';
+          form.after(errEl);
+        }
+        errEl.textContent = 'Senha incorreta';
+        input.value = '';
+        input.focus();
+        input.style.borderColor = 'var(--red)';
+        setTimeout(() => { input.style.borderColor = ''; }, 1500);
+      }
+    } catch {
+      toast('Falha de rede ao validar senha');
+    }
+    btn.disabled = false;
+  };
+}
+async function proceedSelect(u) {
   me = u;
+  sessionVerified = true;
   localStorage.setItem(ME_KEY, JSON.stringify(me));
   activeId = null;
   conversations = [];
@@ -1217,7 +1270,8 @@ function renderUsersTab() {
   const body = $('settingsBody');
   body.innerHTML = `
     <div class="pc-note">Cada pessoa entra no chat clicando no próprio avatar — as conversas ficam separadas no servidor.
-    A imagem é opcional (use as iniciais). Edição de usuários permitida <b>apenas no PC do servidor (localhost)</b>.</div>
+    A imagem é opcional (use as iniciais). <b>Senha é opcional</b>: se definida, quem clicar no avatar precisa digitá-la.
+    As senhas ficam salvas como hash no servidor (nunca em texto, nunca expostas). Edição permitida <b>apenas no PC do servidor (localhost)</b>.</div>
     <div id="usersList"></div>
     <div class="provider-card" style="margin-top:12px">
       <div class="pc-head"><b style="font-size:13px">➕ Novo usuário</b></div>
@@ -1226,6 +1280,7 @@ function renderUsersTab() {
         <button class="btn primary" id="nuAdd" style="padding:6px 12px">Cadastrar</button>
       </div>
       <div class="frow">
+        <input id="nuPass" type="password" placeholder="Senha (opcional)" maxlength="100" style="flex:1">
         <label>Foto (opcional)</label>
         <input id="nuAvatar" type="file" accept="image/*" style="font-size:11px;color:var(--muted)">
       </div>
@@ -1236,7 +1291,9 @@ function renderUsersTab() {
     row.className = 'user-row';
     row.innerHTML = `
       <span title="Clique para trocar a foto" id="av_${esc(u.id)}">${avatarHTML(u, 40)}</span>
-      <input type="text" value="${esc(u.name)}" data-uid="${esc(u.id)}" maxlength="40">
+      <input type="text" value="${esc(u.name)}" data-uid="${esc(u.id)}" maxlength="40" style="flex:1">
+      <input type="password" placeholder="${u.hasPassword ? 'senha definida (deixe vazio p/ manter)' : 'senha (opcional)'}" maxlength="100">
+      <label class="rm-pass"><input type="checkbox">remover</label>
       <input type="file" accept="image/*" data-uid="${esc(u.id)}" class="ur-file" style="display:none">
       <button class="btn ghost" data-uid="${esc(u.id)}" style="padding:4px 8px;font-size:11px">Salvar</button>
       <button class="btn danger" data-uid="${esc(u.id)}">🗑</button>`;
@@ -1252,11 +1309,15 @@ function renderUsersTab() {
     };
     row.querySelector('.btn.ghost').onclick = async () => {
       const name = row.querySelector('input[type=text]').value.trim();
+      const pass = row.querySelector('input[type=password]').value;
+      const rmPass = row.querySelector('.rm-pass input').checked;
       const payload = { name };
       if (row.dataset.pendingAvatar) payload.avatar = row.dataset.pendingAvatar;
+      if (rmPass) payload.password = '';
+      else if (pass) payload.password = pass;
       const j = await fetchJSON(`/v1/users/${u.id}`, 'PUT', payload);
       showConfigMsg(j.ok ? `Usuário "${name || u.name}" salvo! ✅` : '❌ ' + (j.error || ''), j.ok);
-      if (j.ok) { await loadUsers(); openSettings(); }
+      if (j.ok) { if (me?.id === u.id) me = { ...me, ...j.user }; await loadUsers(); openSettings(); }
     };
     row.querySelector('.btn.danger').onclick = async () => {
       if (!confirm(`Apagar o usuário "${u.name}" e TODAS as conversas dele?`)) return;
@@ -1273,7 +1334,8 @@ function renderUsersTab() {
   body.querySelector('#nuAdd').onclick = async () => {
     const name = body.querySelector('#nuName').value.trim();
     if (!name) { showConfigMsg('❌ Digite o nome.', false); return; }
-    const j = await fetchJSON('/v1/users', 'POST', { name, avatar: pendingAvatar });
+    const pass = body.querySelector('#nuPass').value;
+    const j = await fetchJSON('/v1/users', 'POST', { name, password: pass || undefined, avatar: pendingAvatar });
     showConfigMsg(j.ok ? `Usuário "${name}" cadastrado! ✅` : '❌ ' + (j.error || ''), j.ok);
     if (j.ok) { await loadUsers(); openSettings(); }
   };

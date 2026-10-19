@@ -65,6 +65,40 @@ async function main() {
     failures++;
   }
 
+  // 2c'. Senha por usuário (hash + verify + correlação de falha)
+  try {
+    const post = (url, body) => fetch(base + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    // cria usuário temporário com senha
+    const suffix = Date.now().toString(36).slice(-5);
+    const cr = await post('/v1/users', { name: 'test_senha_' + suffix, password: 's3cret!' });
+    const cj = await cr.json();
+    const uid = cj?.user?.id;
+    const createdOk = cr.status === 201 && uid && cj.user.hasPassword === true;
+    if (!createdOk) throw new Error('falha ao criar usuário com senha: ' + JSON.stringify(cj).slice(0, 90));
+    // senha errada -> 401
+    const wrong = await post('/v1/users/verify', { id: uid, password: 'errada' });
+    const wrongOk = wrong.status === 401;
+    // senha certa -> 200
+    const right = await post('/v1/users/verify', { id: uid, password: 's3cret!' });
+    const rightOk = right.status === 200;
+    // lista NUNCA expõe hash
+    const lu = await (await fetch(`${base}/v1/users`)).json();
+    const noLeak = !JSON.stringify(lu).includes('passwordHash');
+    // remove senha via PUT
+    const rm = await fetch(`${base}/v1/users/${uid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: '' }) });
+    const rmj = await rm.json();
+    const rmOk = rm.status === 200 && rmj.user?.hasPassword === false;
+    const del = await fetch(`${base}/v1/users/${uid}`, { method: 'DELETE' });
+    const allOk = wrongOk && rightOk && noLeak && rmOk && del.status === 200;
+    ok('Usuários com senha (hash/verify/remoção)', allOk, allOk
+      ? '401 errada ✓ 200 certa ✓ sem hash na lista ✓ removeu ✓ deletado ✓'
+      : `errada=${wrong.status} certa=${right.status} leak=${noLeak} rm=${rmj.user?.hasPassword} del=${del.status}`);
+    if (!allOk) failures++;
+  } catch (e) {
+    ok('Usuários com senha (hash/verify/remoção)', false, e.message);
+    failures++;
+  }
+
   // 2d. Projetos (agrupamento de conversas por usuário)
   try {
     const uid = 'testproj';
