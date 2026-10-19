@@ -349,6 +349,19 @@ export class ModelRotationManager {
     }
     return false;
   }
+
+  /**
+   * Rebuild the rotation order from the CURRENT catalog. Used after the
+   * web settings UI activates/deactivates providers.
+   */
+  rebuildModelOrder() {
+    const current = this.getCurrentModel();
+    this.initializeModelOrder();
+    // Keep pointing at the same model if it is still available
+    if (current && !this.setCurrentModel(current)) {
+      this.currentModelIndex = 0;
+    }
+  }
 }
 
 export default ModelRotationManager;

@@ -1,26 +1,3 @@
-# Dependências
 node_modules/
-
-# Configurações com chaves de API (NUNCA comitar)
+data/
 .env
-.env.local
-.env.production
-
-# Logs
-*.log
-logs/
-npm-debug.log*
-
-# Sistema operacional
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Editor
-.vscode/
-.idea/
-*.swp
-
-# Build/Distribuição
-dist/
-build/

@@ -9,10 +9,14 @@ import pino from 'pino';
 import pinoPretty from 'pino-pretty';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 import { ChatCompletionHandler } from './core/ChatCompletionHandler.js';
 import { providerFactory, ProviderFactory } from './providers/ProviderFactory.js';
 import { ModelRotationManager } from './core/ModelRotationManager.js';
-import { getAllModels } from './config/providers.js';
+import { getAllModels, rebuildProviders } from './config/providers.js';
+import { FREE_PROVIDER_TEMPLATES } from './config/freeProviders.js';
+import { updateEnvFile, maskSecret } from './config/envManager.js';
+import { getUsers, addUser, updateUser, removeUser, listConversations, saveConversation, deleteConversation } from './config/userStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -65,6 +69,12 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Web interface (chat + settings) served by the server itself
+const publicDir = join(__dirname, '..', 'public');
+if (existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+}
 
 // Request logging with body debug
 app.use((req, res, next) => {
@@ -222,8 +232,187 @@ app.get('/v1/models/current', (req, res) => {
   });
 });
 
+// ============ Config API (powers the web settings UI) ============
+
+// Localhost-only by default; ALLOW_REMOTE_CONFIG=true in .env releases the lock
+const allowRemoteConfig = process.env.ALLOW_REMOTE_CONFIG === 'true';
+const LOCAL_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+function configGuard(req, res, next) {
+  const ip = req.ip || req.socket?.remoteAddress || '';
+  if (allowRemoteConfig || LOCAL_IPS.has(ip)) return next();
+  res.status(403).json({
+    error: {
+      message: 'A configuracao so pode ser alterada a partir do servidor (localhost). Para liberar de outros PCs da rede, set ALLOW_REMOTE_CONFIG=true no .env.',
+      type: 'forbidden',
+    },
+  });
+}
+
+const CONFIGURABLE_KEYS = new Set([
+  'OPENROUTER_API_KEY', 'OPENROUTER_BASE_URL', 'OPENROUTER_REFERER', 'OPENROUTER_TITLE',
+  'NVIDIA_API_KEY', 'NVIDIA_BASE_URL',
+  'OLLAMA_BASE_URL', 'OLLAMA_MODELS',
+  'LMSTUDIO_BASE_URL', 'LMSTUDIO_MODELS',
+  'CUSTOM_AI_NAME', 'CUSTOM_AI_BASE_URL', 'CUSTOM_AI_API_KEY', 'CUSTOM_AI_MODELS',
+  'CUSTOM_AI_CONTEXT_LENGTH', 'CUSTOM_AI_MAX_TOKENS',
+  'ALLOW_REMOTE_CONFIG',
+]);
+for (const tpl of FREE_PROVIDER_TEMPLATES) {
+  CONFIGURABLE_KEYS.add(tpl.envKey);
+  CONFIGURABLE_KEYS.add(tpl.baseURLKey);
+}
+
+const STATIC_PROVIDERS = [
+  { id: 'openrouter', name: 'OpenRouter', fields: ['OPENROUTER_API_KEY', 'OPENROUTER_BASE_URL', 'OPENROUTER_REFERER', 'OPENROUTER_TITLE'] },
+  { id: 'nvidia', name: 'NVIDIA NIM', fields: ['NVIDIA_API_KEY', 'NVIDIA_BASE_URL'] },
+];
+
+function buildConfigStatus() {
+  const active = providerFactory.getAvailableProviders();
+  const entries = [];
+
+  for (const sp of STATIC_PROVIDERS) {
+    entries.push({
+      id: sp.id, name: sp.name, active: active.includes(sp.id),
+      fields: sp.fields.map(k => ({
+        key: k, value: process.env[k] || '', masked: maskSecret(process.env[k]),
+      })),
+    });
+  }
+
+  for (const tpl of FREE_PROVIDER_TEMPLATES) {
+    const fieldKeys = [tpl.envKey, ...(tpl.modelsEnvKey ? [tpl.modelsEnvKey] : []), ...(tpl.baseURLKey ? [tpl.baseURLKey] : [])];
+    entries.push({
+      id: tpl.id, name: tpl.name, active: active.includes(tpl.id),
+      signup: tpl.signup, note: tpl.note,
+      fields: fieldKeys.map(k => ({
+        key: k, value: process.env[k] || '', masked: maskSecret(process.env[k]),
+      })),
+    });
+  }
+
+  entries.push({
+    id: 'custom', name: 'Servidor próprio (CUSTOM_AI)',
+    active: active.includes('custom'),
+    note: 'Qualquer endpoint OpenAI-compatible (seu server, vLLM, LiteLLM...)',
+    fields: ['CUSTOM_AI_NAME', 'CUSTOM_AI_BASE_URL', 'CUSTOM_AI_API_KEY', 'CUSTOM_AI_MODELS'].map(k => ({
+      key: k, value: process.env[k] || '', masked: maskSecret(process.env[k]),
+    })),
+  });
+
+  return {
+    allowRemoteConfig,
+    activeProviders: active,
+    providers: entries,
+    restartNote: 'Chaves de provedores aplicam na hora. PORT, HOST e ROTATION_STRATEGY exigem reiniciar o servidor.',
+  };
+}
+
+app.get('/v1/config', configGuard, (req, res) => {
+  res.json(buildConfigStatus());
+});
+
+app.post('/v1/config', configGuard, async (req, res) => {
+  try {
+    const updates = {};
+    const rejected = [];
+    for (const [key, value] of Object.entries(req.body || {})) {
+      if (!CONFIGURABLE_KEYS.has(key)) { rejected.push(key); continue; }
+      updates[key] = value == null ? '' : String(value).trim();
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: { message: 'Nada para salvar', rejected, type: 'invalid_request' } });
+    }
+
+    updateEnvFile(updates);
+
+    // Hot reload: catalog -> clients -> rotation order
+    rebuildProviders();
+    providerFactory.reload({ timeout: config.requestTimeout });
+    chatHandler.reloadModelOrder();
+
+    logger.info({ providers: providerFactory.getAvailableProviders(), keys: Object.keys(updates) }, 'Config updated via web UI');
+
+    res.json({
+      success: true,
+      applied: Object.keys(updates),
+      rejected,
+      activeProviders: providerFactory.getAvailableProviders(),
+      ...buildConfigStatus(),
+    });
+  } catch (error) {
+    logger.error({ error: error.message }, 'Config save failed');
+    res.status(500).json({ error: { message: error.message, type: 'server_error' } });
+  }
+});
+
+// ============ Users (web chat login, managed locally) ============
+
+// Public: the login screen needs the avatar list to pick "who am I"
+app.get('/v1/users', (req, res) => {
+  res.json({ users: getUsers() });
+});
+
+// Management: localhost-only (same guard as API keys)
+app.post('/v1/users', configGuard, (req, res) => {
+  try {
+    const user = addUser(req.body || {});
+    logger.info({ user: user.id, name: user.name }, 'User created via web UI');
+    res.status(201).json({ success: true, user });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+app.put('/v1/users/:id', configGuard, (req, res) => {
+  try {
+    const user = updateUser(req.params.id, req.body || {});
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+app.delete('/v1/users/:id', configGuard, (req, res) => {
+  try {
+    removeUser(req.params.id);
+    logger.info({ user: req.params.id }, 'User removed via web UI');
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+// ============ Per-user conversations (no mixing between departments) ============
+
+app.get('/v1/conversations', (req, res) => {
+  res.json({ conversations: listConversations(req.query.userId) });
+});
+
+app.put('/v1/conversations/:id', (req, res) => {
+  try {
+    saveConversation(req.query.userId, req.body);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+app.delete('/v1/conversations/:id', (req, res) => {
+  try {
+    deleteConversation(req.query.userId, req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
 // Root endpoint
+const chatPage = join(publicDir, 'index.html');
 app.get('/', (req, res) => {
+  if (existsSync(chatPage)) return res.sendFile(chatPage);
   res.json({
     name: 'Local AI Server',
     version: '1.0.0',
@@ -234,8 +423,9 @@ app.get('/', (req, res) => {
       health: '/health',
       rotationStatus: '/v1/rotation/status',
       currentModel: '/v1/models/current',
+      config: '/v1/config',
     },
-    documentation: 'https://github.com/your-repo/local-ai-server',
+    documentation: 'https://github.com/luizhenriqueamadeu/local-ai-server',
   });
 });
 
@@ -253,6 +443,9 @@ app.use((err, req, res, next) => {
 // Start server
 const server = app.listen(config.port, config.host, () => {
   logger.info(`🚀 Local AI Server running on http://${config.host}:${config.port}`);
+  if (existsSync(chatPage)) {
+    logger.info(`🌐 Web chat em http://localhost:${config.port} (na rede: http://SEU_IP:${config.port})`);
+  }
   logger.info(`📡 OpenAI-compatible API: http://${config.host}:${config.port}/v1/chat/completions`);
   logger.info(`🔄 Model rotation: ${config.rotationStrategy}`);
   logger.info(`🧠 Context preservation: ${config.preserveContext ? 'enabled' : 'disabled'}`);

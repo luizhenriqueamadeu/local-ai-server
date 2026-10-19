@@ -240,6 +240,14 @@ export class ChatCompletionHandler {
   }
 
   /**
+   * Rebuild rotation order after providers were reloaded
+   * (e.g. new provider keys saved through the web settings UI)
+   */
+  reloadModelOrder() {
+    this.rotationManager.rebuildModelOrder();
+  }
+
+  /**
    * Get available models list (OpenAI-compatible format)
    */
   async listModels() {

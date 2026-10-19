@@ -239,6 +239,28 @@ export const PROVIDERS = {
  */
 Object.assign(PROVIDERS, buildCompatibleProviders());
 
+/**
+ * Rebuild the provider catalog using the CURRENT environment values.
+ * Called at startup and again after the web settings UI saves new keys,
+ * so provider keys added/removed via the web become active without
+ * restarting the server.
+ */
+export function rebuildProviders() {
+  // Refresh static providers (their fields captured process.env at import)
+  PROVIDERS.openrouter.apiKey = process.env.OPENROUTER_API_KEY;
+  PROVIDERS.openrouter.baseURL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+  PROVIDERS.openrouter.headers['HTTP-Referer'] = process.env.OPENROUTER_REFERER || 'http://localhost:3000';
+  PROVIDERS.openrouter.headers['X-Title'] = process.env.OPENROUTER_TITLE || 'Local AI Server';
+  PROVIDERS.nvidia.apiKey = process.env.NVIDIA_API_KEY;
+  PROVIDERS.nvidia.baseURL = process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+
+  // Remove dynamically-added compatible providers and rebuild from env
+  for (const key of Object.keys(PROVIDERS)) {
+    if (key !== 'openrouter' && key !== 'nvidia') delete PROVIDERS[key];
+  }
+  Object.assign(PROVIDERS, buildCompatibleProviders());
+}
+
 export const MODEL_TIERS = ['free', 'low-cost', 'premium'];
 
 export function getAllModels() {

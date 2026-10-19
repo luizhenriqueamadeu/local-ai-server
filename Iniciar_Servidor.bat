@@ -75,7 +75,8 @@ echo   Iniciando servidor na porta 3000...
 echo ========================================
 echo.
 echo Endpoints:
-echo   API:      http://localhost:3000/v1/chat/completions
+echo   Chat (web): http://localhost:3000/  (na rede: http://SEU_IP:3000/)
+echo   API:        http://localhost:3000/v1/chat/completions
 echo   Health:   http://localhost:3000/health
 echo   Modelos:  http://localhost:3000/v1/models
 echo   Status:   http://localhost:3000/v1/rotation/status

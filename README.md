@@ -4,9 +4,12 @@ Um servidor de IA local que roda na sua rede interna, gerencia múltiplos proved
 
 ## 🚀 Funcionalidades
 
-- **Múltiplos Provedores**: OpenRouter + NVIDIA (Nemotron, Llama, Gemma, Mistral)
+- **Múltiplos Provedores**: OpenRouter + NVIDIA + Groq, Gemini, Cerebras, Mistral, Together, HuggingFace, DeepSeek, OpenAI, Ollama, LM Studio e servidor próprio
 - **Rotação Automática**: Troca de modelo ao atingir rate limit sem perder o raciocínio
 - **Preservação de Contexto**: Mantém histórico e resumo da conversa ao trocar modelos
+- **Chat pelo navegador**: interface web pronta, servida pelo próprio servidor
+- **Usuários com avatar** (ideal para empresas): conversas separadas por pessoa/setor, salvas no servidor
+- **Painel de configuração na web**: adicione/remova APIs e chaves sem editar arquivo nenhum — ativa na hora
 - **API OpenAI Compatível**: Funciona com Continue, Cline, CodeGPT, Cursor, etc.
 - **Modelos Gratuitos Prioritários**: Usa modelos free tier primeiro
 - **Deploy Nativo**: Node.js puro, sem Docker necessário
@@ -16,15 +19,15 @@ Um servidor de IA local que roda na sua rede interna, gerencia múltiplos proved
 
 - Node.js 18+ (recomendado 20+)
 - npm ou pnpm
-- Chaves de API:
+- Chaves de API (opcional — veja lista de provedores abaixo):
   - [OpenRouter](https://openrouter.ai/keys) - para acesso a 100+ modelos
   - [NVIDIA](https://build.nvidia.com/) - para Nemotron e modelos NVIDIA
 
 ## 🛠 Instalação
 
 ```bash
-# Clone ou entre no diretório
-cd D:\LOCALIA
+# Entre na pasta do projeto
+cd local-ai-server
 
 # Instale dependências
 npm install
@@ -33,6 +36,47 @@ npm install
 cp .env.example .env
 # Edite .env com suas chaves
 ```
+
+## 🌐 Chat pelo navegador (incluído!)
+
+O servidor entrega a própria interface de chat. Abra no navegador:
+
+```
+http://localhost:3000          (no PC do servidor)
+http://192.168.2.10:3000       (de qualquer PC / celular / tablet da rede)
+```
+
+- Conversas **salvas no servidor, separadas por usuário** (veja a seção 👥 abaixo)
+- Resposta em **streaming** palavra por palavra (SSE, mesmo protocolo da API)
+- Markdown + blocos de código com botão copiar
+- Painel de conversas na lateral, botão de parar resposta
+- Sem instalar nada — só um navegador
+
+## ⚙️ Painel de configuração de APIs (na web)
+
+Clique no **⚙️** no topo do chat (ou via API em `GET /v1/config`). Lá você:
+
+- Vê todas as **13 APIs** prontas (OpenRouter, NVIDIA, Groq, Gemini, Cerebras, Mistral, Together, HuggingFace, DeepSeek, OpenAI, Ollama, LM Studio + seu próprio servidor) com status **✅ ATIVA / INATIVA**
+- Preenche a chave de qualquer API e clica **Salvar** → entra na rotação **na hora**, sem reiniciar
+- Vê o link para pegar a chave de cada provedor
+- Limpa a chave de uma API para desativá-la
+
+Segurança: por padrão a configuração **só pode ser alterada a partir do próprio servidor (`localhost`)** — outros PCs da rede só conversam, não mexem em chaves. Para liberar de outros PCs da rede, sete `ALLOW_REMOTE_CONFIG=true`.
+
+> As chaves são salvas no arquivo `.env` do servidor (nunca no navegador) e são apresentadas **mascaradas** (`gsk_a****f9z2`) na tela.
+
+## 👥 Usuários (para empresas — conversas separadas por setor)
+
+Perfeito para uso corporativo: cada pessoa entra no chat clicando no próprio avatar, e **as conversas ficam separadas por usuário — salvas no servidor**, não no navegador.
+
+1. No PC do servidor, abra o chat e clique **⚙️ → aba 👥 Usuários**
+2. Cadastre os usuários (nome + foto opcional): "Setor Financeiro", "RH", "Suporte"...
+3. De qualquer PC/celular da rede, quem abrir `http://SEU_IP:3000` vê a tela **"Quem está usando?"** com os avatares
+4. Cada usuário clica no próprio perfil → conversas próprias, isoladas das outras
+
+- As conversas ficam salvas na pasta `data/` do servidor (nunca sobe para o GitHub) — trocar de máquina não perde o histórico.
+- É possível ativar/remover/editar usuários e apagar as conversas de alguém a qualquer momento.
+- Modo **Convidado** disponível para acessos avulsos (neste caso as conversas ficam só no navegador, como antes).
 
 ## ⚡ Início Rápido (5 minutos)
 
@@ -55,9 +99,11 @@ cp .env.example .env
    ```bash
    node scripts/test_server.js
    ```
-   Testa `/health`, `/v1/models` e um chat completo em `model: "auto"`.
+   Testa `/health`, chat web, painel de configuração, `/v1/models` e um chat completo em `model: "auto"`.
 
-> **Na rede local**: descubra o IP da máquina com `ipconfig` e use `http://SEU_IP:3000/v1` nos clientes de outros PCs.
+> 💡 **Sem chaves?** Você pode ativar o **Ollama** (modelos locais, sem API key) pelo próprio painel ⚙️ do chat — preencha `OLLAMA_MODELS=llama3.1:8b` e a IA roda no seu PC.
+
+> **Na rede local**: descubra o IP da máquina com `ipconfig` e use `http://SEU_IP:3000` (chat no navegador) ou `http://SEU_IP:3000/v1` (API para VSCode etc.) nos clientes de outros PCs.
 
 ## ⚙️ Configuração
 
@@ -261,6 +307,8 @@ Ao trocar de modelo, o servidor:
 
 ## 📊 Modelos Disponíveis
 
+Exemplos (a lista real depende das APIs ativadas — veja `GET /v1/models`):
+
 ### OpenRouter (Gratuitos)
 - `meta-llama/llama-3.1-8b-instruct:free` - 128K context
 - `google/gemma-2-9b-it:free` - 8K context
@@ -312,10 +360,12 @@ node scripts/test_server.js [host]
 local-ai-server/
 ├── src/
 │   ├── index.js               # Entrada (carrega dotenv e inicia servidor)
-│   ├── server.js              # Servidor Express principal
+│   ├── server.js              # Servidor Express + rotas API + config
 │   ├── config/
 │   │   ├── providers.js       # Catálogo de modelos e provedores
-│   │   └── freeProviders.js   # ✨ Lista pronta de provedores gratuitos (auto-ativação)
+│   │   ├── freeProviders.js   # ✨ Lista pronta de provedores gratuitos (auto-ativação)
+│   │   ├── envManager.js      # ✨ Le/grava .env (painel de configuração web)
+│   │   └── userStore.js       # ✨ Usuários + conversas por usuário (pasta data/)
 │   ├── core/
 │   │   ├── ModelRotationManager.js  # Lógica de rotação
 │   │   └── ChatCompletionHandler.js # Orquestração de chat
@@ -325,10 +375,13 @@ local-ai-server/
 │       ├── OpenRouterClient.js      # Cliente OpenRouter
 │       ├── NVIDIAClient.js          # Cliente NVIDIA
 │       └── ProviderFactory.js       # Factory de provedores
+├── public/
+│   └── index.html             # ✨ Chat web + configuração de APIs + usuários (servido pelo servidor)
 ├── scripts/
-│   └── test_server.js         # Testa health, models e chat
+│   └── test_server.js         # Testa health, web chat, config, users, models e chat
+├── data/                      # Gerada em tempo de execução (usuários e conversas) — nunca publique
 ├── .env.example               # Exemplo de configuração
-├── .gitignore                 # Ignora .env e node_modules
+├── .gitignore                 # Ignora .env, node_modules e data/
 ├── Dockerfile                 # Deploy em Docker
 ├── docker-compose.yml         # Subida com 1 comando
 ├── Iniciar_Servidor.bat       # Início com 2 cliques (Windows)

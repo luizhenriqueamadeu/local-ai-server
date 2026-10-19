@@ -159,6 +159,19 @@ export const FREE_PROVIDER_TEMPLATES = [
     modelsEnvKey: 'OLLAMA_MODELS', // comma-separated upstream ids, e.g. "llama3.1:8b,qwen2.5:7b"
     models: [],
   },
+  {
+    id: 'lmstudio',
+    name: 'LM Studio (local)',
+    envKey: 'LMSTUDIO_API_KEY', // not required; LM Studio runs without a key
+    baseURLKey: 'LMSTUDIO_BASE_URL',
+    baseURL: 'http://localhost:1234/v1',
+    signup: 'https://lmstudio.ai/',
+    note: 'Local models via LM Studio, no key needed. Activate by setting LMSTUDIO_BASE_URL and LMSTUDIO_MODELS.',
+    requiresKey: false,
+    headers: {},
+    modelsEnvKey: 'LMSTUDIO_MODELS',
+    models: [],
+  },
 ];
 
 /**

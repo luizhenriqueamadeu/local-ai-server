@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local AI Server — Chat</title>
+<style>
+  :root {
+    --bg: #0d1014; --bg2: #13161b; --bg3: #191d24;
+    --border: #2a2f3a; --text: #e8eaed; --muted: #8b93a1;
+    --accent: #8a7ffc; --accent2: #b39ff8; --user: #2b2640;
+    --green: #3fb950; --red: #f85149; --code-bg: #0a0c0f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 15px; overflow: hidden; }
+
+  .layout { display: flex; height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar { width: 240px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .newchat-btn { margin: 10px; padding: 10px; background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 14px; text-align: left; }
+  .newchat-btn:hover { border-color: var(--accent); }
+  .conv-list { flex: 1; overflow-y: auto; padding: 4px 8px; }
+  .conv-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv-item:hover { background: var(--bg3); }
+  .conv-item.active { background: var(--bg3); color: var(--text); }
+  .conv-item .del { opacity: 0; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; }
+  .conv-item:hover .del { opacity: 1; }
+  .sidebar-footer { padding: 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+
+  /* ---- Main ---- */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+  .topbar .logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #d78cf8); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .topbar .title { font-weight: 600; font-size: 14px; }
+  .topbar .spacer { flex: 1; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+  .status-dot.on { background: var(--green); }
+  .status-label { font-size: 12px; color: var(--muted); }
+  .icon-btn { background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer; font-size: 17px; padding: 6px 9px; border-radius: 8px; line-height: 1; }
+  .icon-btn:hover { background: var(--bg3); color: var(--text); }
+
+  /* User chip (topbar) */
+  .user-chip { display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 5px; background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; font-size: 12px; max-width: 150px; }
+  .user-chip:hover { border-color: var(--accent); }
+  .user-chip .uname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .avatar { border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+  .avatar-letter { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex-shrink: 0; }
+
+  /* ---- Chat area ---- */
+  .chat { flex: 1; overflow-y: auto; padding: 24px 16px; }
+  .chat-inner { max-width: 780px; margin: 0 auto; }
+  .welcome { text-align: center; margin-top: 12vh; color: var(--muted); }
+  .welcome .big { font-size: 44px; margin-bottom: 12px; }
+  .welcome h2 { color: var(--text); margin-bottom: 8px; font-weight: 500; }
+  .welcome p { font-size: 14px; }
+  .msg { margin-bottom: 18px; display: flex; gap: 12px; }
+  .msg .avatar, .msg .avatar-letter { width: 30px; height: 30px; font-size: 14px; }
+  .msg.user .avatar { background: #343b4d; }
+  .msg .avatar-letter { background: var(--accent); }
+  .msg .body { min-width: 0; flex: 1; }
+  .msg .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .msg .content { line-height: 1.65; word-wrap: break-word; }
+  .msg.user .content { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; display: inline-block; max-width: 100%; }
+  .msg .content p { margin: 0 0 10px; }
+  .msg .content p:last-child { margin-bottom: 0; }
+  .msg .content ul, .msg .content ol { margin: 4px 0 10px 22px; }
+  .msg .content h1, .msg .content h2, .msg .content h3 { margin: 14px 0 8px; }
+  .msg .content blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--muted); margin: 8px 0; }
+  .msg .content code.inline { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 13px; font-family: Consolas, Monaco, monospace; }
+  .msg .actions { margin-top: 4px; }
+  .copy-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; font-size: 11px; padding: 3px 8px; cursor: pointer; }
+  .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+  .codeblock { position: relative; margin: 10px 0; background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .codeblock .cb-head { display: flex; justify-content: space-between; align-items: center; padding: 5px 12px; background: var(--bg3); font-size: 11px; color: var(--muted); }
+  .codeblock .cb-copy { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; }
+  .codeblock .cb-copy:hover { color: var(--text); }
+  .codeblock pre { padding: 12px; overflow-x: auto; font-family: Consolas, Monaco, monospace; font-size: 13px; line-height: 1.5; }
+  .cursor-blink { display: inline-block; width: 8px; height: 15px; background: var(--accent); vertical-align: text-bottom; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---- Composer ---- */
+  .composer { padding: 12px 16px 16px; border-top: 1px solid var(--border); background: var(--bg2); }
+  .composer-inner { max-width: 780px; margin: 0 auto; }
+  .input-wrap { display: flex; align-items: flex-end; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 14px; padding: 8px 10px; }
+  .input-wrap:focus-within { border-color: var(--accent); }
+  #input { flex: 1; background: none; border: none; outline: none; color: var(--text); font: inherit; resize: none; max-height: 140px; line-height: 1.5; }
+  .send-btn, .stop-btn { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 8px 14px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+  .send-btn:disabled { opacity: .4; cursor: default; }
+  .stop-btn { background: var(--red); }
+  .composer-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* ---- Modals ---- */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; width: 720px; max-width: 100%; max-height: 88vh; display: flex; flex-direction: column; }
+  .modal.small { width: 560px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .modal-head h3 { font-size: 15px; font-weight: 600; }
+  .modal-body { overflow-y: auto; padding: 14px 18px; flex: 1; }
+  .modal-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+  .provider-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .provider-card .pc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  .badge.on { background: rgba(63,185,80,.15); color: var(--green); }
+  .badge.off { background: rgba(139,147,161,.15); color: var(--muted); }
+  .modal a.help { font-size: 11px; color: var(--accent2); text-decoration: none; margin-left: auto; }
+  .frow { display: flex; gap: 8px; margin-bottom: 6px; }
+  .frow input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
+  .frow input:focus { border-color: var(--accent); }
+  .frow label { width: 150px; flex-shrink: 0; font-size: 11px; color: var(--muted); padding-top: 9px; }
+  .pc-note { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .btn { border: none; border-radius: 9px; padding: 8px 16px; cursor: pointer; font-size: 13px; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn.danger { background: none; border: 1px solid var(--border); color: var(--red); padding: 5px 9px; border-radius: 7px; font-size: 11px; cursor: pointer; }
+  .config-msg { font-size: 12px; margin-left: auto; }
+  .config-msg.err { color: var(--red); }
+  .config-msg.ok { color: var(--green); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; padding: 10px 18px 0; }
+  .tab-btn { background: none; border: 1px solid transparent; border-bottom: none; color: var(--muted); font-size: 13px; padding: 8px 14px; border-radius: 10px 10px 0 0; cursor: pointer; }
+  .tab-btn.active { background: var(--bg3); color: var(--text); }
+
+  /* User picker */
+  .picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 10px; }
+  .user-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 14px; padding: 16px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; text-align: center; }
+  .user-card:hover { border-color: var(--accent); background: var(--bg); }
+  .user-card .avatar, .user-card .avatar-letter { width: 56px; height: 56px; font-size: 24px; }
+  .user-card .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+  .user-card .uc-name { font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-row { display: flex; align-items: center; gap: 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+  .user-row input[type=text] { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
+  .user-row .avatar, .user-row .avatar-letter { width: 40px; height: 40px; font-size: 18px; cursor: pointer; }
+  .arrow-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px; flex-shrink: 0; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 10px 18px; font-size: 13px; display: none; z-index: 99; }
+  .toast.show { display: block; }
+
+  /* ---- Mobile ---- */
+  .menu-btn { display: none; }
+  @media (max-width: 720px) {
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 10; transform: translateX(-100%); transition: transform .2s; }
+    .sidebar.open { transform: none; }
+    .menu-btn { display: inline-block; }
+    .composer { padding: 10px 12px 12px; }
+    .status-label { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <button class="newchat-btn" id="newChat">＋ Nova conversa</button>
+    <div class="conv-list" id="convList"></div>
+    <div class="sidebar-footer">Local AI Server<br>API: /v1/chat/completions</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" title="Conversas">☰</button>
+      <div class="logo">🤖</div>
+      <div class="title">Local AI Server</div>
+      <div class="spacer"></div>
+      <div class="user-chip" id="userChip" title="Trocar de usuário">…</div>
+      <select id="modelSelect" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:12px;max-width:170px;cursor:pointer;"></select>
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-label" id="statusLabel">conectando…</span>
+      <button class="icon-btn" id="settingsBtn" title="Configurações de APIs e Usuários">⚙️</button>
+    </div>
+
+    <div class="chat" id="chat">
+      <div class="chat-inner">
+        <div class="welcome" id="welcome">
+          <div class="big">✨</div>
+          <h2>Bem-vindo ao seu servidor de IA</h2>
+          <p>A rotação automática escolhe o melhor modelo <b>free</b> disponível.<br>Clique em ⚙️ para configurar APIs e usuários.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="input-wrap">
+          <textarea id="input" rows="1" placeholder="Envie uma mensagem…"></textarea>
+          <button class="stop-btn" id="stopBtn" style="display:none" title="Parar resposta">■ Parar</button>
+          <button class="send-btn" id="sendBtn" title="Enviar">➤</button>
+        </div>
+        <div class="composer-hint">Enter = enviar · Shift+Enter = nova linha · conversas salvas no servidor por usuário</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- User picker -->
+<div class="overlay" id="pickerOverlay">
+  <div class="modal small">
+    <div class="modal-head"><h3>👥 Quem está usando?</h3></div>
+    <div class="modal-body">
+      <div class="pc-note">Suas conversas ficam separadas por usuário. Clique no seu perfil para entrar.</div>
+      <div class="picker-grid" id="pickerGrid"></div>
+      <div class="pc-note" style="margin-top:14px">Para cadastrar novos usuários, abra o ⚙️ &gt; aba <b>Usuários</b> a partir do computador do servidor.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>⚙️ Configurações</h3>
+      <button class="icon-btn" id="settingsClose">✕</button>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" id="tabApis">🔑 APIs</button>
+      <button class="tab-btn" id="tabUsers">👥 Usuários</button>
+    </div>
+    <div class="modal-body" id="settingsBody">Carregando…</div>
+    <div class="modal-foot">
+      <span class="config-msg" id="configMsg"></span>
+      <button class="btn primary" id="configSave">Salvar</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// ================= State =================
+const ME_KEY = 'las_me_v1';
+const GUEST_KEY = 'local_ai_conversations_v1';
+const $ = id => document.getElementById(id);
+let me = JSON.parse(localStorage.getItem(ME_KEY) || 'null');   // {id,name,avatar,color} | {id:'guest'}
+let users = [];
+let conversations = [];
+let activeId = null;
+let configCache = null;
+let abortCtrl = null;
+let generating = false;
+let settingsTab = 'apis';
+
+// ================= Helpers =================
+function avatarHTML(u, size) {
+  const s = size || 28;
+  if (u && u.avatar) return `<img class="avatar" src="${u.avatar}" style="width:${s}px;height:${s}px" alt="">`;
+  const letter = u && u.name ? u.name.slice(0, 1).toUpperCase() : '?';
+  const color = (u && u.color) || 'var(--accent)';
+  return `<div class="avatar-letter" style="width:${s}px;height:${s}px;background:${esc(color)};font-size:${Math.round(s * .45)}px">${esc(letter)}</div>`;
+}
+
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const safeId = id => /^[a-z0-9_]{1,40}$/i.test(String(id || ''));
+
+function isServerUser() { return me && safeId(me.id) && me.id !== 'guest'; }
+
+function renderMd(text) {
+  const parts = String(text).split(/```/);
+  let html = '';
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) { // code fence content: first line = lang
+      const nl = parts[i].indexOf('\n');
+      const lang = nl === -1 ? '' : parts[i].slice(0, nl).trim();
+      const code = nl === -1 ? parts[i] : parts[i].slice(nl + 1);
+      html += `<div class="codeblock"><div class="cb-head"><span>${esc(lang || 'código')}</span><button class="cb-copy" data-code="${esc(code)}">copiar</button></div><pre>${esc(code)}</pre></div>`;
+    } else {
+      html += fmtMd(parts[i]);
+    }
+  }
+  return html;
+}
+
+function fmtMd(text) {
+  let h = esc(text);
+  if (!h.trim()) return '';
+  const lines = h.split('\n');
+  let out = '', inList = false;
+  for (let line of lines) {
+    const codes = [];
+    line = line.replace(/`([^`\n]+)`/g, (_, c) => {
+      codes.push(`<code class="inline">${c}</code>`);
+      return `\u0000${codes.length - 1}\u0000`;
+    });
+    if (/^\s*([-*•]|\d+\.)\s+/.test(line.trim())) {
+      if (!inList) { out += '<ul>'; inList = true; }
+      out += '<li>' + inline(line.trim().replace(/^\s*([-*•]|\d+\.)\s+/, '')) + '</li>';
+      continue;
+    } else if (inList) { out += '</ul>'; inList = false; }
+    if (/^###\s/.test(line.trim())) out += '<h4>' + inline(line.trim().replace(/^###\s/, '')) + '</h4>';
+    else if (/^##\s/.test(line.trim())) out += '<h3>' + inline(line.trim().replace(/^##\s/, '')) + '</h3>';
+    else if (/^#\s/.test(line.trim())) out += '<h2>' + inline(line.trim().replace(/^#\s/, '')) + '</h2>';
+    else if (/^\s*&gt;\s?/.test(line)) out += '<blockquote>' + inline(line.replace(/^\s*&gt;\s?/, '')) + '</blockquote>';
+    else if (line.trim() === '') { if (inList) { out += '</ul>'; inList = false; } }
+    else out += '<p>' + inline(line) + '</p>';
+  }
+  if (inList) out += '</ul>';
+  out = out.replace(/\u0000(\d+)\u0000/g, (_, i) => codes[+i]);
+  return out;
+
+  function inline(s) {
+    return s
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/(^|\s)\*([^*\s][^*]*)\*(?=\s|$)/g, '$1<i>$2</i>')
+      .replace(/(https?:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent2)">$1</a>')
+      .replace(/\u0000(\d+)\u0000/g, (_, i) => `\u0000${i}\u0000`);
+  }
+}
+
+// ================= Users / login =================
+async function loadUsers() {
+  try { users = (await (await fetch('/v1/users')).json()).users || []; }
+  catch { users = []; }
+  if (me && me.id !== 'guest' && !users.find(u => u.id === me.id)) { me = null; localStorage.removeItem(ME_KEY); }
+  if (!me) showPicker();
+  else { renderUserChip(); await loadConversations(); }
+}
+
+function showPicker() {
+  $('pickerOverlay').classList.add('open');
+  const grid = $('pickerGrid');
+  grid.innerHTML = '';
+  for (const u of users) {
+    const c = document.createElement('div');
+    c.className = 'user-card';
+    c.innerHTML = `${avatarHTML(u, 56)}<span class="uc-name">${esc(u.name)}</span>`;
+    c.onclick = () => selectUser(u);
+    grid.appendChild(c);
+  }
+  const g = document.createElement('div');
+  g.className = 'user-card';
+  g.innerHTML = `<div class="avatar" style="width:56px;height:56px;background:var(--bg);border:1px dashed var(--muted);display:flex;align-items:center;justify-content:center;font-size:22px">👤</div><span class="uc-name">Convidado</span>`;
+  g.onclick = () => selectUser({ id: 'guest', name: 'Convidado' });
+  grid.appendChild(g);
+}
+
+async function selectUser(u) {
+  if (generating) abortCtrl?.abort();
+  me = u;
+  localStorage.setItem(ME_KEY, JSON.stringify(me));
+  activeId = null;
+  conversations = [];
+  $('pickerOverlay').classList.remove('open');
+  renderUserChip();
+  await loadConversations();
+  toast(`Olá, ${u.name === 'Convidado' ? 'convidado' : u.name}! 👋`);
+}
+
+function renderUserChip() {
+  $('userChip').innerHTML = `${avatarHTML(me, 24)}<span class="uname">${esc(me ? me.name : '…')}</span>`;
+  $('userChip').onclick = () => { loadUsers().then(showPicker); };
+}
+
+// ================= Conversations (server-side per user) =================
+async function loadConversations() {
+  if (!me) { conversations = []; }
+  else if (me.id === 'guest') { conversations = JSON.parse(localStorage.getItem(GUEST_KEY) || '[]'); }
+  else {
+    try {
+      conversations = (await (await fetch(`/v1/conversations?userId=${encodeURIComponent(me.id)}`)).json()).conversations || [];
+    } catch { conversations = []; }
+  }
+  activeId = conversations[0]?.id || null;
+  renderConvList();
+  renderChat();
+}
+
+function persistConv(conv) {
+  if (!conv) return;
+  if (isServerUser()) {
+    fetch(`/v1/conversations/${conv.id}?userId=${encodeURIComponent(me.id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(conv),
+    }).catch(() => {});
+  } else {
+    localStorage.setItem(GUEST_KEY, JSON.stringify(conversations.slice(0, 100)));
+  }
+}
+
+function removeConv(id) {
+  conversations = conversations.filter(c => c.id !== id);
+  if (isServerUser()) fetch(`/v1/conversations/${id}?userId=${encodeURIComponent(me.id)}`, { method: 'DELETE' }).catch(() => {});
+  else localStorage.setItem(GUEST_KEY, JSON.stringify(conversations));
+}
+
+function getActive() { return conversations.find(c => c.id === activeId) || null; }
+
+// ================= Sidebar & chat render =================
+function renderConvList() {
+  const list = $('convList');
+  list.innerHTML = '';
+  for (const c of conversations) {
+    const div = document.createElement('div');
+    div.className = 'conv-item' + (c.id === activeId ? ' active' : '');
+    div.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis">${esc(c.title || 'Sem título')}</span><button class="del" title="Apagar">🗑</button>`;
+    div.onclick = () => { activeId = c.id; renderConvList(); renderChat(); $('sidebar').classList.remove('open'); };
+    div.querySelector('.del').onclick = e => {
+      e.stopPropagation();
+      removeConv(c.id);
+      if (activeId === c.id) activeId = conversations[0]?.id || null;
+      renderConvList(); renderChat();
+    };
+    list.appendChild(div);
+  }
+}
+
+function renderChat() {
+  const chat = $('chat');
+  const inner = chat.querySelector('.chat-inner');
+  const conv = getActive();
+  chat.querySelectorAll('.msg').forEach(m => m.remove());
+  if (!conv || conv.messages.length === 0) { $('welcome').style.display = 'block'; return; }
+  $('welcome').style.display = 'none';
+  for (const m of conv.messages) inner.appendChild(renderMsg(m, conv));
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function renderMsg(m, conv) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + m.role;
+  div.dataset.mid = m.id;
+  const meOut = m.role === 'user' ? me : null;
+  const owner = m.role === 'user' ? (meOut ? meOut.name : 'Você') : (m.model || 'Assistente');
+  const avatarOut = m.role === 'user' ? avatarHTML(meOut, 30) : '<div class="avatar" style="background:linear-gradient(135deg,var(--accent),#d78cf8);display:flex;align-items:center;justify-content:center">🤖</div>';
+  div.innerHTML = `
+    ${avatarOut}
+    <div class="body">
+      <div class="meta"><span>${esc(owner)}</span>${m.streaming ? '<span style="color:var(--accent2)">digitando…</span>' : ''}</div>
+      <div class="content">${renderMd(m.content)}${m.streaming ? '<span class="cursor-blink"></span>' : ''}</div>
+      ${!m.streaming && m.role === 'assistant' && m.content ? '<div class="actions"><button class="copy-btn" data-text="' + esc(m.content) + '">copiar resposta</button></div>' : ''}
+    </div>`;
+  return div;
+}
+
+function updateMsgDOM(m, conv) {
+  const chat = $('chat');
+  const inner = chat.querySelector('.chat-inner');
+  const existing = inner.querySelector(`[data-mid="${m.id}"]`);
+  if (existing) existing.replaceWith(renderMsg(m, conv));
+  else inner.appendChild(renderMsg(m, conv));
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// ================= Sending =================
+async function send() {
+  const input = $('input');
+  const text = input.value.trim();
+  if (!text || generating || !me) return;
+
+  if (!getActive()) {
+    const conv = { id: 'c' + Date.now(), title: text.slice(0, 40), updatedAt: new Date().toISOString(), messages: [] };
+    conversations.unshift(conv);
+    activeId = conv.id;
+  }
+  const conv = getActive();
+  renderConvList();
+
+  const userMsg = { id: 'm' + Date.now(), role: 'user', content: text };
+  const asstMsg = { id: 'm' + (Date.now() + 1), role: 'assistant', content: '', model: $('modelSelect').value, streaming: true };
+  conv.messages.push(userMsg, asstMsg);
+  conv.updatedAt = new Date().toISOString();
+  $('welcome').style.display = 'none';
+  $('chat').querySelector('.chat-inner').appendChild(renderMsg(userMsg, conv));
+  updateMsgDOM(asstMsg, conv);
+  persistConv(conv);
+  input.value = ''; input.style.height = 'auto';
+  setGenerating(true);
+
+  abortCtrl = new AbortController();
+  try {
+    const res = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: $('modelSelect').value,
+        messages: conv.messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content })),
+        stream: true,
+      }),
+      signal: abortCtrl.signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    let lastPersist = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') continue;
+        try {
+          const j = JSON.parse(payload);
+          if (j.error) throw new Error(j.error.message || 'erro no stream');
+          const delta = j.choices?.[0]?.delta?.content || '';
+          if (delta) {
+            asstMsg.content += delta;
+            asstMsg.model = j.model || asstMsg.model;
+            updateMsgDOM(asstMsg, conv);
+            if (Date.now() - lastPersist > 3000) { lastPersist = Date.now(); persistConv(conv); }
+          }
+        } catch (e) { if (e.message && e.message !== 'erro no stream') throw e; }
+      }
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') asstMsg.content += '\n\n_(interrompido)_';
+    else {
+      asstMsg.content += `⚠️ ${e.message}`;
+      if (e.message.includes('Failed to fetch')) asstMsg.content = '⚠️ Servidor não respondeu. Ele está rodando?';
+    }
+  } finally {
+    asstMsg.streaming = false;
+    updateMsgDOM(asstMsg, conv);
+    persistConv(conv);
+    setGenerating(false);
+    abortCtrl = null;
+    refreshStatus();
+  }
+}
+
+function setGenerating(on) {
+  generating = on;
+  $('sendBtn').style.display = on ? 'none' : 'block';
+  $('stopBtn').style.display = on ? 'block' : 'none';
+}
+
+// ================= Models / status =================
+async function loadModels() {
+  const sel = $('modelSelect');
+  try {
+    const res = await fetch('/v1/models');
+    const j = await res.json();
+    const models = (j.data || []).filter(m => m.available);
+    sel.innerHTML = '';
+    const optAuto = document.createElement('option');
+    optAuto.value = 'auto';
+    optAuto.textContent = `🔄 auto (${models.length} modelos)`;
+    sel.appendChild(optAuto);
+    const byProvider = {};
+    for (const m of models) (byProvider[m.owned_by] = byProvider[m.owned_by] || []).push(m);
+    for (const [prov, list] of Object.entries(byProvider)) {
+      const g = document.createElement('optgroup');
+      g.label = prov;
+      for (const m of list) {
+        const o = document.createElement('option');
+        o.value = m.id;
+        o.textContent = `${m.tier === 'free' ? '🆓' : '💲'} ${m.id}`;
+        g.appendChild(o);
+      }
+      sel.appendChild(g);
+    }
+  } catch { /* offline */ }
+}
+
+async function refreshStatus() {
+  try {
+    const j = await (await fetch('/health')).json();
+    $('statusDot').classList.add('on');
+    $('statusLabel').textContent = `${j.providers.length} API(s): ${j.providers.join(', ')}`;
+  } catch {
+    $('statusDot').classList.remove('on');
+    $('statusLabel').textContent = 'offline';
+  }
+}
+
+// ================= Settings (tabs: APIs / Usuários) =================
+async function openSettings() {
+  $('settingsOverlay').classList.add('open');
+  $('configMsg').textContent = '';
+  $('settingsBody').textContent = 'Carregando…';
+  $('configSave').style.display = settingsTab === 'apis' ? '' : 'none';
+  try {
+    const [cfgRes, usrRes] = await Promise.all([fetch('/v1/config'), fetch('/v1/users')]);
+    if (!cfgRes.ok) {
+      const e = await cfgRes.json().catch(() => ({}));
+      $('settingsBody').textContent = e.error?.message || `HTTP ${cfgRes.status}`;
+      $('configSave').style.display = 'none';
+      return;
+    }
+    configCache = await cfgRes.json();
+    users = (await usrRes.json()).users || [];
+    renderSettings();
+  } catch (e) {
+    $('settingsBody').textContent = 'Falha ao carregar: ' + e.message;
+  }
+}
+
+function renderSettings() {
+  if (settingsTab === 'apis') renderApisTab();
+  else renderUsersTab();
+}
+
+function renderApisTab() {
+  const body = $('settingsBody');
+  body.innerHTML = `<div class="pc-note">${configCache.allowRemoteConfig
+    ? 'ALLOW_REMOTE_CONFIG=true — qualquer PC da rede pode alterar aqui. Evite em redes abertas.'
+    : 'Alterações só salvas a partir do PC do servidor (localhost). De outros PCs a aba Usuários fica em modo leitura.'}</div>`;
+  for (const p of configCache.providers) {
+    const card = document.createElement('div');
+    card.className = 'provider-card';
+    const epic = p.active ? '<span class="badge on">✅ ATIVA</span>' : '<span class="badge off">INATIVA</span>';
+    const help = p.signup ? `<a class="help" href="${esc(p.signup)}" target="_blank" rel="noopener">🔑 pegar chave ↗</a>` : '';
+    card.innerHTML = `<div class="pc-head"><b style="font-size:13px">${esc(p.name)}</b>${epic}${help}</div>`
+      + (p.note ? `<div class="pc-note">${esc(p.note)}</div>` : '');
+    for (const f of p.fields) {
+      if (f.key === 'ALLOW_REMOTE_CONFIG') continue;
+      const row = document.createElement('div');
+      row.className = 'frow';
+      const placeholder = f.masked ? `${f.masked} (salva)` : (f.key.endsWith('_API_KEY') || f.key.endsWith('_KEY') ? 'não configurada' : '');
+      row.innerHTML = `<label>${esc(f.key)}</label><input data-envkey="${esc(f.key)}" data-original="${esc(f.value)}" type="text" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false">`;
+      card.appendChild(row);
+    }
+    body.appendChild(card);
+  }
+}
+
+function renderUsersTab() {
+  const body = $('settingsBody');
+  body.innerHTML = `
+    <div class="pc-note">Cada pessoa entra no chat clicando no próprio avatar — as conversas ficam separadas no servidor.
+    A imagem é opcional (use as iniciais). Edição de usuários permitida <b>apenas no PC do servidor (localhost)</b>.</div>
+    <div id="usersList"></div>
+    <div class="provider-card" style="margin-top:12px">
+      <div class="pc-head"><b style="font-size:13px">➕ Novo usuário</b></div>
+      <div class="frow">
+        <input id="nuName" type="text" placeholder="Nome (ex: Setor Financeiro)" maxlength="40">
+        <button class="btn primary" id="nuAdd" style="padding:6px 12px">Cadastrar</button>
+      </div>
+      <div class="frow">
+        <label>Foto (opcional)</label>
+        <input id="nuAvatar" type="file" accept="image/*" style="font-size:11px;color:var(--muted)">
+      </div>
+    </div>`;
+  const list = body.querySelector('#usersList');
+  for (const u of users) {
+    const row = document.createElement('div');
+    row.className = 'user-row';
+    row.innerHTML = `
+      <span title="Clique para trocar a foto" id="av_${esc(u.id)}">${avatarHTML(u, 40)}</span>
+      <input type="text" value="${esc(u.name)}" data-uid="${esc(u.id)}" maxlength="40">
+      <input type="file" accept="image/*" data-uid="${esc(u.id)}" class="ur-file" style="display:none">
+      <button class="btn ghost" data-uid="${esc(u.id)}" style="padding:4px 8px;font-size:11px">Salvar</button>
+      <button class="btn danger" data-uid="${esc(u.id)}">🗑</button>`;
+    list.appendChild(row);
+    // click avatar -> pick file
+    row.querySelector('span').onclick = () => row.querySelector('.ur-file').click();
+    row.querySelector('.ur-file').onchange = e => {
+      const f = e.target.files[0];
+      if (f) resizeImage(f, dataUrl => {
+        const holder = row.querySelector('span');
+        holder.style.cursor = 'pointer';
+        holder.innerHTML = `<img class="avatar" src="${dataUrl}" style="width:40px;height:40px" alt="">`;
+        row.dataset.pendingAvatar = dataUrl;
+      });
+    };
+    row.querySelector('.btn.ghost').onclick = async () => {
+      const name = row.querySelector('input[type=text]').value.trim();
+      const payload = { name };
+      if (row.dataset.pendingAvatar) payload.avatar = row.dataset.pendingAvatar;
+      const j = await fetchJSON(`/v1/users/${u.id}`, 'PUT', payload);
+      showConfigMsg(j.ok ? `Usuário "${name || u.name}" salvo! ✅` : '❌ ' + (j.error || ''), j.ok);
+      if (j.ok) { await loadUsers(); openSettings(); }
+    };
+    row.querySelector('.btn.danger').onclick = async () => {
+      if (!confirm(`Apagar o usuário "${u.name}" e TODAS as conversas dele?`)) return;
+      const j = await fetchJSON(`/v1/users/${u.id}`, 'DELETE', {});
+      showConfigMsg(j.ok ? 'Usuário apagado.' : '❌ ' + (j.error || ''), j.ok);
+      if (j.ok) { if (me?.id === u.id) { me = null; localStorage.removeItem(ME_KEY); } loadUsers(); openSettings(); }
+    };
+  }
+  // add new
+  let pendingAvatar = '';
+  body.querySelector('#nuAvatar').onchange = e => {
+    const f = e.target.files[0];
+    if (f) resizeImage(f, d => { pendingAvatar = d; toast('Foto pronta! Cadastre.'); });
+  };
+  body.querySelector('#nuAdd').onclick = async () => {
+    const name = body.querySelector('#nuName').value.trim();
+    if (!name) { showConfigMsg('❌ Digite o nome.', false); return; }
+    const j = await fetchJSON('/v1/users', 'POST', { name, avatar: pendingAvatar });
+    showConfigMsg(j.ok ? `Usuário "${name}" cadastrado! ✅` : '❌ ' + (j.error || ''), j.ok);
+    if (j.ok) { await loadUsers(); openSettings(); }
+  };
+}
+
+async function fetchJSON(url, method, payload) {
+  try {
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const j = await r.json();
+    if (!r.ok) return { ok: false, error: j.error?.message || `HTTP ${r.status}` };
+    return { ok: true, data: j };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+function showConfigMsg(text, good) {
+  const m = $('configMsg');
+  m.textContent = text;
+  m.className = 'config-msg ' + (good ? 'ok' : 'err');
+}
+
+function resizeImage(file, cb) {
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const size = 128;
+    c.width = size; c.height = size;
+    const x = c.getContext('2d');
+    const min = Math.min(img.width, img.height);
+    x.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, size, size);
+    cb(c.toDataURL('image/jpeg', 0.85));
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+async function saveSettings() {
+  const btn = $('configSave');
+  showConfigMsg('Salvando e recarregando provedores…', true);
+  const payload = {};
+  let changed = 0;
+  $('settingsBody').querySelectorAll('input[data-envkey]').forEach(inp => {
+    const key = inp.dataset.envkey;
+    const original = inp.dataset.original || '';
+    let val = inp.value.trim();
+    if (val === original) return;
+    changed++;
+    payload[key] = val; // empty string = limpar / desativar
+  });
+  if (changed === 0) { showConfigMsg('Nada alterado.', true); return; }
+  btn.disabled = true;
+  try {
+    const res = await fetch('/v1/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error?.message || `HTTP ${res.status}`);
+    configCache = j;
+    renderApisTab();
+    showConfigMsg(`✅ Salvo! APIs ativas: ${j.activeProviders.join(', ')}`, true);
+    loadModels();
+    refreshStatus();
+  } catch (e) {
+    showConfigMsg('❌ ' + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ================= Events =================
+$('sendBtn').onclick = send;
+$('stopBtn').onclick = () => abortCtrl?.abort();
+$('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+$('input').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+});
+$('settingsBtn').onclick = openSettings;
+$('settingsClose').onclick = () => $('settingsOverlay').classList.remove('open');
+$('settingsOverlay').addEventListener('click', e => { if (e.target === $('settingsOverlay')) $('settingsOverlay').classList.remove('open'); });
+$('configSave').onclick = saveSettings;
+$('newChat').onclick = () => { activeId = null; renderChat(); renderConvList(); $('sidebar').classList.remove('open'); $('input').focus(); };
+$('menuBtn').onclick = () => $('sidebar').classList.toggle('open');
+$('tabApis').onclick = () => { if (settingsTab === 'apis') return; settingsTab = 'apis'; $('tabApis').classList.add('active'); $('tabUsers').classList.remove('active'); $('configSave').style.display = ''; renderSettings(); };
+$('tabUsers').onclick = () => { if (settingsTab === 'users') return; settingsTab = 'users'; $('tabUsers').classList.add('active'); $('tabApis').classList.remove('active'); $('configSave').style.display = 'none'; renderSettings(); };
+document.addEventListener('click', e => {
+  const cb = e.target.closest('.cb-copy');
+  if (cb) { navigator.clipboard.writeText(cb.dataset.code); toast('Código copiado!'); }
+  const cp = e.target.closest('.copy-btn');
+  if (cp) { navigator.clipboard.writeText(cp.dataset.text); toast('Resposta copiada!'); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    $('settingsOverlay').classList.remove('open');
+    if (generating && me) { /* keep chat */ }
+  }
+});
+let toastTimer;
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1800); }
+
+// Init
+renderUserChip();
+loadModels();
+refreshStatus();
+setInterval(refreshStatus, 15000);
+loadUsers().then(() => { if (me) renderConvList(); });
+</script>
+</body>
+</html>

@@ -28,7 +28,32 @@ async function main() {
     process.exit(1);
   }
 
-  // 2. Listar modelos
+  // 2. Página web (chat)
+  try {
+    const r = await fetch(base + '/');
+    const t = await r.text();
+    const isPage = r.status === 200 && t.includes('Local AI Server') && t.includes('<script');
+    ok('GET / (web chat)', isPage, isPage ? 'página HTML servida' : t.slice(0, 80));
+    if (!isPage) failures++;
+  } catch (e) {
+    ok('GET / (web chat)', false, e.message);
+    failures++;
+  }
+
+  // 2b. Painel de configuração de APIs
+  try {
+    const r = await fetch(`${base}/v1/config`);
+    const j = await r.json();
+    const okc = r.status === 200 && Array.isArray(j.providers);
+    ok('GET /v1/config', okc, okc
+      ? `ativas: ${(j.activeProviders || []).join(', ')}` : JSON.stringify(j).slice(0, 100));
+    if (!okc) failures++;
+  } catch (e) {
+    ok('GET /v1/config', false, e.message);
+    failures++;
+  }
+
+  // 3. Listar modelos
   try {
     const r = await fetch(`${base}/v1/models`);
     const j = await r.json();

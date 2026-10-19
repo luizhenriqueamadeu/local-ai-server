@@ -46,6 +46,16 @@ export class ProviderFactory {
     return this.clients.get(providerId);
   }
 
+  /**
+   * Re-register all providers from the CURRENT catalog. Used when the
+   * web settings UI saves new provider keys - no server restart needed.
+   */
+  reload(config = {}) {
+    this.clients.clear();
+    this.initialized = false;
+    this.initialize(config);
+  }
+
   getClientForModel(modelId) {
     // Determine provider from model config
     const modelInfo = getModelInfo(modelId);
