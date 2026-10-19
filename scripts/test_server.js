@@ -91,6 +91,18 @@ async function main() {
     failures++;
   }
 
+  // 2f. Observabilidade (/v1/stats)
+  try {
+    const r = await fetch(`${base}/v1/stats`);
+    const j = await r.json();
+    const oks = r.status === 200 && j.summary && Array.isArray(j.recent);
+    ok('GET /v1/stats', oks, oks ? `reqs: ${j.summary.requests} | cache: ${j.summary.cacheHits}` : JSON.stringify(j).slice(0, 80));
+    if (!oks) failures++;
+  } catch (e) {
+    ok('GET /v1/stats', false, e.message);
+    failures++;
+  }
+
   // 3. Listar modelos
   try {
     const r = await fetch(`${base}/v1/models`);

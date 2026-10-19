@@ -13,6 +13,11 @@ export class ModelRotationManager {
     this.rateLimitRetryDelay = options.rateLimitRetryDelay || 5000;
     this.maxRetries = options.maxRetries || 3;
 
+    // Circuit breaker: after N consecutive failures the model "opens" for a
+    // cooldown period (skipped entirely), then recovers (half-open probe)
+    this.circuitThreshold = options.circuitThreshold || parseInt(process.env.CIRCUIT_THRESHOLD || '3', 10);
+    this.circuitCooldown = options.circuitCooldown || parseInt(process.env.CIRCUIT_COOLDOWN_MS || '300000', 10);
+
     // Model state tracking
     this.modelStates = new Map(); // modelId -> { errors, lastError, rateLimitedUntil, consecutiveFailures }
     this.currentModelIndex = 0;
@@ -53,13 +58,18 @@ export class ModelRotationManager {
 
   /**
    * Get next available model (for rotation)
+   * Respects circuit breakers; if EVERY model has an open circuit,
+   * returns the next model ignoring circuits (probe to avoid total lockout)
    */
   getNextModel(excludeModelId = null) {
     const startIndex = this.currentModelIndex + 1;
-    for (let i = 0; i < this.modelOrder.length; i++) {
-      const index = (startIndex + i) % this.modelOrder.length;
-      const modelId = this.modelOrder[index];
-      if (modelId !== excludeModelId && this.isModelAvailable(modelId)) {
+    for (const strict of [true, false]) {
+      for (let i = 0; i < this.modelOrder.length; i++) {
+        const index = (startIndex + i) % this.modelOrder.length;
+        const modelId = this.modelOrder[index];
+        if (modelId === excludeModelId) continue;
+        if (strict && !this.isModelAvailable(modelId)) continue;
+        if (!strict && this.isRateLimited(modelId)) continue;
         return modelId;
       }
     }
@@ -67,7 +77,15 @@ export class ModelRotationManager {
   }
 
   /**
-   * Check if a model is available (not rate limited, not too many failures)
+   * Is the model currently rate limited (regardless of circuit state)?
+   */
+  isRateLimited(modelId) {
+    const state = this.modelStates.get(modelId);
+    return Boolean(state?.rateLimitedUntil && Date.now() < state.rateLimitedUntil);
+  }
+
+  /**
+   * Check if a model is available (not rate limited, circuit not open)
    */
   isModelAvailable(modelId) {
     const state = this.modelStates.get(modelId);
@@ -78,11 +96,26 @@ export class ModelRotationManager {
       return false;
     }
 
-    // Check consecutive failures
-    if (state.consecutiveFailures >= this.maxRetries) {
+    // Circuit breaker: temporarily out of rotation after repeated failures
+    if (this.circuitOpen(modelId)) {
       return false;
     }
 
+    return true;
+  }
+
+  /**
+   * Is the circuit breaker "open" for this model (skip it)?
+   */
+  circuitOpen(modelId) {
+    const state = this.modelStates.get(modelId);
+    if (!state?.circuitUntil) return false;
+    if (Date.now() >= state.circuitUntil) {
+      // Cooldown expired - half-open: allow a probe attempt
+      state.circuitUntil = null;
+      state.halfOpen = true;
+      return false;
+    }
     return true;
   }
 
@@ -98,6 +131,8 @@ export class ModelRotationManager {
     };
     state.consecutiveFailures = 0;
     state.lastError = null;
+    state.circuitUntil = null;
+    state.halfOpen = false;
     this.modelStates.set(modelId, state);
   }
 
@@ -128,10 +163,17 @@ export class ModelRotationManager {
       console.log(`[ModelRotation] Model ${modelId} rate limited, retry after ${retryAfter}ms`);
     }
 
+    // Circuit breaker: too many consecutive failures -> open circuit
+    if (state.consecutiveFailures >= this.circuitThreshold) {
+      state.circuitUntil = Date.now() + this.circuitCooldown;
+      state.halfOpen = false;
+      console.log(`[ModelRotation] ⚡ Circuit OPEN for ${modelId} (${state.consecutiveFailures} failures), skipping for ${Math.round(this.circuitCooldown / 1000)}s`);
+    }
+
     this.modelStates.set(modelId, state);
 
-    // If too many failures, rotate to next model
-    if (state.consecutiveFailures >= this.maxRetries) {
+    // Rotate immediately on rate-limit style errors
+    if (this.isRateLimitError(error)) {
       this.rotateToNext(modelId);
     }
   }
@@ -324,7 +366,10 @@ export class ModelRotationManager {
         current: modelId === this.getCurrentModel(),
         errors: state.errors || 0,
         consecutiveFailures: state.consecutiveFailures || 0,
-        rateLimitedUntil: state.rateLimitedUntil,
+        rateLimitedUntil: state.rateLimitedUntil || null,
+        circuitOpen: Boolean(state.circuitUntil && Date.now() < state.circuitUntil),
+        circuitUntil: state.circuitUntil || null,
+        halfOpen: state.halfOpen || false,
         lastError: state.lastError,
       };
     }

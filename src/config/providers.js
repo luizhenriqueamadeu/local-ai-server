@@ -8,6 +8,7 @@ import { buildCompatibleProviders } from './freeProviders.js';
 export const PROVIDERS = {
   openrouter: {
     name: 'OpenRouter',
+    supportsTools: true,
     baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
     apiKey: process.env.OPENROUTER_API_KEY,
     headers: {
@@ -151,6 +152,7 @@ export const PROVIDERS = {
 
   nvidia: {
     name: 'NVIDIA',
+    supportsTools: true,
     baseURL: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
     apiKey: process.env.NVIDIA_API_KEY,
     headers: {},

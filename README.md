@@ -299,6 +299,21 @@ Content-Type: Application/JSON
 {"model": "meta-llama/llama-3.1-8b-instruct:free"}
 ```
 
+### Estatísticas
+```bash
+GET /v1/stats
+```
+Retorna: resumo (requisições, taxa ok, latência média, tokens, cache), uso por modelo e as últimas 50 requisições. Formatado também na aba 📊 do painel ⚙️.
+
+### Validar Chave (sem salvar)
+```bash
+POST /v1/config/test
+Content-Type: Application/JSON
+
+{"provider": "groq", "values": {"GROQ_API_KEY": "gsk_..."}}
+```
+Testa a chave ao vivo no provedor (nunca salva, nunca retorna a chave). Botão **🔌 Testar** nos cards de API do painel ⚙️. Restrito a localhost como o resto do painel.
+
 ## 🔄 Como Funciona a Rotação
 
 1. **Requisição chega** → Sistema verifica modelo atual
@@ -315,6 +330,19 @@ Content-Type: Application/JSON
 | `rate-limit` | Troca só quando atinge rate limit (padrão) |
 | `round-robin` | Distribui requisições entre modelos |
 | `priority` | Usa ordem de prioridade definida em `FREE_MODELS_PRIORITY` |
+
+## 🩺 Confiabilidade (Circuit Breaker, Cache, Tools)
+
+- **⚡ Circuit breaker** — depois de `CIRCUIT_THRESHOLD` falhas consecutivas (padrão 3), o modelo fica fora de rotação por `CIRCUIT_COOLDOWN_MS`. Depois do cooldown volta a testar (half-open). Se TODOS os circuitos abrirem, o sistema faz uma sondagem ignorando os circuitos (evita travar tudo).
+- **💨 Cache de respostas idênticas** — mesmas mensagens + modelo + temperatura dentro de `CACHE_TTL_SECONDS` (60s padrão) retorna na hora (`"cached": true`), sem gastar a API. Desative com `ENABLE_CACHE=false`. *(Cache semântico por similaridade exige embeddings — planejado via Ollama.)*
+- **🛠 Tool calling normalizado** — provedores sem suporte a `tools` (HuggingFace, Ollama, LM Studio) recebem a requisição sem tools automaticamente; se um provedor recusar tools em tempo real, o servidor remove e tenta de novo no mesmo modelo antes de rotacionar.
+- **🛡 Corpo de erro com HTTP 200** — alguns upstreams retornam 200 com `error` embutido; o motor detecta e rotaciona como falha real (e não guarda no cache).
+
+## 📊 Estatísticas (Observabilidade)
+
+- Endpoint `GET /v1/stats`: total de requisições, taxa de ok, **latência média real**, tokens in/out (do `usage` dos provedores), hits de cache, circuitos abertos e as últimas 50 requisições (modelo, tentativas, erro).
+- Aba **📊 Estatísticas** no painel ⚙️ do chat web mostra resumo em cards + tabelas por modelo e por requisição.
+- Métricas ficam em memória (recomeçam quando o servidor reinicia).
 
 ## 🧠 Preservação de Contexto
 

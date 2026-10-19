@@ -232,7 +232,16 @@ app.get('/v1/models/current', (req, res) => {
   });
 });
 
-// ============ Config API (powers the web settings UI) ============
+// Aggregated per-request observability (tokens, latency, attempts, cache)
+app.get('/v1/stats', (req, res) => {
+  try {
+    res.json(chatHandler.getStats());
+  } catch (error) {
+    res.status(500).json({ error: { message: error.message, type: 'server_error' } });
+  }
+});
+
+// ============ Web interface config (powers the settings UI) ============
 
 // Localhost-only by default; ALLOW_REMOTE_CONFIG=true in .env releases the lock
 const allowRemoteConfig = process.env.ALLOW_REMOTE_CONFIG === 'true';
@@ -311,6 +320,56 @@ function buildConfigStatus() {
 
 app.get('/v1/config', configGuard, (req, res) => {
   res.json(buildConfigStatus());
+});
+
+// Validate a provider credential WITHOUT saving it (secret stays server-side)
+app.post('/v1/config/test', configGuard, async (req, res) => {
+  try {
+    const { provider, values = {} } = req.body || {};
+    let baseURL = null;
+    let apiKey = null;
+    const tpl = FREE_PROVIDER_TEMPLATES.find(t => t.id === provider);
+
+    if (provider === 'openrouter') {
+      baseURL = values.OPENROUTER_BASE_URL?.trim() || process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+      apiKey = values.OPENROUTER_API_KEY?.trim() || process.env.OPENROUTER_API_KEY;
+      // /models is PUBLIC on OpenRouter (validates nothing): use /key, which requires auth
+    } else if (provider === 'nvidia') {
+      baseURL = values.NVIDIA_BASE_URL?.trim() || process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+      apiKey = values.NVIDIA_API_KEY?.trim() || process.env.NVIDIA_API_KEY;
+    } else if (provider === 'custom') {
+      baseURL = values.CUSTOM_AI_BASE_URL?.trim() || process.env.CUSTOM_AI_BASE_URL;
+      apiKey = values.CUSTOM_AI_API_KEY?.trim() || process.env.CUSTOM_AI_API_KEY;
+    } else if (tpl) {
+      baseURL = tpl.baseURLKey ? (values[tpl.baseURLKey]?.trim() || process.env[tpl.baseURLKey] || tpl.baseURL) : tpl.baseURL;
+      if (tpl.requiresKey !== false) {
+        apiKey = values[tpl.envKey]?.trim() || process.env[tpl.envKey];
+        if (!apiKey) return res.json({ ok: false, error: 'Chave nao informada' });
+      }
+    } else {
+      return res.status(400).json({ error: { message: 'Provedor desconhecido', type: 'invalid_request' } });
+    }
+    if (!baseURL) return res.json({ ok: false, error: 'Base URL nao configurada' });
+
+    const headers = {};
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+    const checkPath = provider === 'openrouter' ? '/key' : '/models';
+    const r = await fetch(`${baseURL.replace(/\/$/, '')}${checkPath}`, { headers, signal: AbortSignal.timeout(10000) });
+    if (r.status === 401 || r.status === 403) return res.json({ ok: false, error: `Chave invalida (HTTP ${r.status})` });
+    if (r.status === 429) return res.json({ ok: false, error: 'HTTP 429 - chave valida mas em rate limit agora (tente de novo em instantes)' });
+    if (!r.ok) return res.json({ ok: false, error: `HTTP ${r.status}` });
+
+    const j = await r.json().catch(() => ({}));
+    // For OpenRouter /key returns key metadata; for others, a models list
+    const models = Array.isArray(j.data) ? j.data.length : (provider === 'openrouter' ? null : 0);
+    if (provider === 'openrouter') {
+      if (j?.data?.label || j?.data?.name) return res.json({ ok: true, models: null, label: j.data.label || j.data.name });
+      return res.json({ ok: true, models: null }); // /key accepted = key valid
+    }
+    res.json({ ok: true, models, baseURL }); // NEVER returns the key itself
+  } catch (error) {
+    res.json({ ok: false, error: `Falha de rede: ${error.message.slice(0, 120)}` });
+  }
 });
 
 app.post('/v1/config', configGuard, async (req, res) => {

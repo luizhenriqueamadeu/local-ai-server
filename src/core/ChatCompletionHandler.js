@@ -4,9 +4,10 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { createHash } from 'crypto';
 import { providerFactory, ProviderFactory } from '../providers/ProviderFactory.js';
 import { ModelRotationManager } from './ModelRotationManager.js';
-import { getModelInfo, getAllModels } from '../config/providers.js';
+import { getModelInfo, getAllModels, PROVIDERS } from '../config/providers.js';
 
 export class ChatCompletionHandler {
   constructor(options = {}) {
@@ -21,6 +22,28 @@ export class ChatCompletionHandler {
     this.providerFactory = options.providerFactory || providerFactory;
     this.defaultModel = options.defaultModel || this.rotationManager.getCurrentModel();
     this.requestTimeout = options.requestTimeout || 120000;
+
+    // Response cache (exact-match; semantic cache requires embeddings, see README)
+    this.cacheConfig = {
+      enabled: process.env.ENABLE_CACHE !== 'false' && process.env.CACHE_ENABLED !== 'false',
+      ttl: parseInt(process.env.CACHE_TTL_SECONDS || '60', 10) * 1000,
+      max: parseInt(process.env.CACHE_MAX || '200', 10),
+    };
+    this.cache = new Map();
+
+    // Per-request observability (in-memory; resets on restart)
+    this.stats = {
+      requests: 0,
+      successes: 0,
+      failures: 0,
+      cacheHits: 0,
+      totalLatencyMs: 0,
+      totalPromptTokens: 0,
+      totalCompletionTokens: 0,
+      startedAt: Date.now(),
+      recent: [], // ring buffer
+    };
+    this.STATS_MAX_RECENT = 100;
   }
 
   /**
@@ -93,6 +116,20 @@ export class ChatCompletionHandler {
       ...extraParams,
     };
 
+    // Tool-call normalization: strip tools upfront for providers that don't support them
+    if (payload.tools && PROVIDERS[providerId]?.supportsTools === false) {
+      delete payload.tools;
+      delete payload.tool_choice;
+      console.log(`[ChatCompletion] Provider ${providerId} does not support tools; sent without them`);
+    }
+
+    // Tool-call normalization: strip tools upfront for providers that don't support them
+    if (payload.tools && PROVIDERS[providerId]?.supportsTools === false) {
+      delete payload.tools;
+      delete payload.tool_choice;
+      console.log(`[ChatCompletion] Provider ${providerId} does not support tools; sent without them`);
+    }
+
     // Attempt completion with rotation on failure
     return this.executeWithRotation(
       conversationId,
@@ -106,20 +143,45 @@ export class ChatCompletionHandler {
   }
 
   /**
-   * Execute chat completion with automatic rotation on failure
+   * Execute chat completion with automatic rotation on failure,
+   * per-request observability, response cache and tools fallback
    */
   async executeWithRotation(conversationId, initialModel, providerId, client, payload, isStreaming, originalMessages) {
     let currentModel = initialModel;
     let currentProviderId = providerId;
     let currentClient = client;
     let attempts = 0;
+    let toolsStripped = false;
     const maxAttempts = this.rotationManager.modelOrder.length;
+    const startedAt = Date.now();
+    const tries = []; // observability: one entry per attempt
+
+    // Cache lookup (exact match, non-streaming only)
+    const cacheKey = !isStreaming && this.cacheConfig.enabled ? this.cacheKeyOf(payload) : null;
+    if (cacheKey) {
+      const hit = this.cacheGet(cacheKey);
+      if (hit) {
+        this.pushStat({ model: currentModel, provider: currentProviderId, ok: true, cached: true, latencyMs: 0, attempts: [], usage: null });
+        return { ...hit, cached: true };
+      }
+    }
 
     while (attempts < maxAttempts) {
+      const attemptStart = Date.now();
       try {
         console.log(`[ChatCompletion] Attempting with model: ${currentModel} (provider: ${currentProviderId})`);
-
         const response = await currentClient.chatCompletion(payload);
+
+        // Some upstreams return HTTP 200 with an embedded error body — treat as failure and rotate
+        if (!isStreaming && (!response || !Array.isArray(response.choices) || !response.choices.length || response.error)) {
+          const message = response?.error?.message || 'Provider returned an empty/malformed response';
+          throw Object.assign(new Error(message), {
+            status: Number(response?.error?.code) || 502,
+            responseError: true,
+          });
+        }
+
+        tries.push({ model: currentModel, ms: Date.now() - attemptStart, error: null });
 
         // Success - record and return
         this.rotationManager.recordSuccess(currentModel);
@@ -133,15 +195,46 @@ export class ChatCompletionHandler {
           response.provider = currentProviderId;
         }
 
+        // Observability + cache (non-streaming only)
+        if (!isStreaming && response) {
+          const usage = response.usage || null;
+          this.pushStat({
+            model: currentModel,
+            provider: currentProviderId,
+            ok: true,
+            cached: false,
+            latencyMs: Date.now() - startedAt,
+            attempts: tries,
+            usage: usage
+              ? { prompt: usage.prompt_tokens ?? null, completion: usage.completion_tokens ?? null, total: usage.total_tokens ?? null }
+              : null,
+          });
+          if (cacheKey) this.cacheSet(cacheKey, response);
+        }
+
         return response;
       } catch (error) {
+        tries.push({ model: currentModel, ms: Date.now() - attemptStart, error: (error.message || '').slice(0, 160) });
         console.error(`[ChatCompletion] Error with ${currentModel}:`, error.message);
         this.rotationManager.recordError(currentModel, error);
+
+        // Tool-call fallback: provider rejected tools -> retry same model without them
+        if (payload.tools && this.isToolRejection(error)) {
+          delete payload.tools;
+          delete payload.tool_choice;
+          toolsStripped = true;
+          console.log(`[ChatCompletion] Provider rejected tools; retrying ${currentModel} without them`);
+          continue; // same model, no rotation
+        }
 
         // Check if we should rotate
         const nextModel = this.rotationManager.getNextModel(currentModel);
         if (!nextModel) {
-          // No more models to try
+          this.pushStat({
+            model: currentModel, provider: currentProviderId, ok: false, cached: false,
+            latencyMs: Date.now() - startedAt, attempts: tries, usage: null,
+            error: `all models exhausted: ${(error.message || '').slice(0, 120)}`,
+          });
           throw new Error(`All models exhausted. Last error: ${error.message}`);
         }
 
@@ -154,6 +247,12 @@ export class ChatCompletionHandler {
           console.warn(`[ChatCompletion] No client for rotated model ${currentModel}, trying next...`);
           attempts++;
           continue;
+        }
+
+        // Strip tools again if the new provider lacks support
+        if (payload.tools && PROVIDERS[currentProviderId]?.supportsTools === false) {
+          delete payload.tools;
+          delete payload.tool_choice;
         }
 
         // Update payload with new model (upstream id for the new provider)
@@ -170,7 +269,110 @@ export class ChatCompletionHandler {
       }
     }
 
+    this.pushStat({
+      model: currentModel, provider: currentProviderId, ok: false, cached: false,
+      latencyMs: Date.now() - startedAt, attempts: tries, usage: null,
+      error: 'max rotation attempts reached',
+    });
     throw new Error('Max rotation attempts reached');
+  }
+
+  /**
+   * Does this error look like a provider rejecting tool/function calling?
+   */
+  isToolRejection(error) {
+    const status = error.status || error.response?.status;
+    const msg = ((error.message || '') + ' ' + (error.response?.data?.error?.message || '')).toLowerCase();
+    if (status && ![400, 404, 422, 500].includes(Number(status))) return false;
+    return /tool|function/.test(msg);
+  }
+
+  // ---------- Observability ----------
+
+  pushStat(entry) {
+    const s = this.stats;
+    s.requests++;
+    if (entry.cached) {
+      s.cacheHits++;
+      s.successes++;
+    } else if (entry.ok) {
+      s.successes++;
+      s.totalLatencyMs += entry.latencyMs || 0;
+      if (entry.usage) {
+        s.totalPromptTokens += entry.usage.prompt || 0;
+        s.totalCompletionTokens += entry.usage.completion || 0;
+      }
+    } else {
+      s.failures++;
+    }
+    s.recent.unshift({ ts: Date.now(), ...entry });
+    s.recent = s.recent.slice(0, this.STATS_MAX_RECENT);
+  }
+
+  /**
+   * Aggregated observability snapshot: GET /v1/stats
+   */
+  getStats() {
+    const s = this.stats;
+    const perModel = {};
+    for (const r of s.recent) {
+      if (r.cached) continue;
+      if (!perModel[r.model]) {
+        perModel[r.model] = { model: r.model, provider: r.provider || null, requests: 0, totalLatencyMs: 0, tokensIn: 0, tokensOut: 0 };
+      }
+      const per = perModel[r.model];
+      if (r.ok) {
+        per.requests++;
+        per.totalLatencyMs += r.latencyMs || 0;
+        if (r.usage) { per.tokensIn += r.usage.prompt || 0; per.tokensOut += r.usage.completion || 0; }
+      }
+    }
+    for (const per of Object.values(perModel)) {
+      per.avgLatencyMs = per.requests > 0 ? Math.round(per.totalLatencyMs / per.requests) : 0;
+      per.totalLatencyMs = undefined;
+    }
+    const realSuccesses = s.successes - s.cacheHits;
+    return {
+      since: new Date(s.startedAt).toISOString(),
+      note: 'in-memory (resets when the server restarts)',
+      summary: {
+        requests: s.requests,
+        successes: s.successes,
+        failures: s.failures,
+        okRate: s.requests > 0 ? Math.round((s.successes / s.requests) * 100) + '%' : '—',
+        cacheHits: s.cacheHits,
+        avgLatencyMs: realSuccesses > 0 ? Math.round(s.totalLatencyMs / realSuccesses) : 0,
+        totalPromptTokens: s.totalPromptTokens,
+        totalCompletionTokens: s.totalCompletionTokens,
+      },
+      models: Object.values(perModel),
+      recent: s.recent.slice(0, 50),
+      circuitsOpen: Object.entries(this.rotationManager.getStatus())
+        .filter(([, st]) => st.circuitOpen).map(([id, st]) => ({ id, until: st.circuitUntil })),
+    };
+  }
+
+  // ---------- Response cache ----------
+
+  cacheKeyOf(payload) {
+    const { stream, user, ...rest } = payload;
+    return createHash('sha1').update(JSON.stringify(rest)).digest('hex');
+  }
+
+  cacheGet(key) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expires) { this.cache.delete(key); return null; }
+    return entry.response;
+  }
+
+  cacheSet(key, response) {
+    if (!this.cacheConfig.enabled || !key) return;
+    this.cache.set(key, { response: JSON.parse(JSON.stringify(response)), expires: Date.now() + this.cacheConfig.ttl });
+    if (this.cache.size > this.cacheConfig.max) {
+      const oldest = this.cache.keys().next().value;
+      this.cache.delete(oldest);
+    }
   }
 
   /**

@@ -106,6 +106,7 @@ export const FREE_PROVIDER_TEMPLATES = [
   },
   {
     id: 'huggingface',
+    supportsTools: false,
     name: 'HuggingFace',
     envKey: 'HUGGINGFACE_API_KEY',
     baseURLKey: 'HUGGINGFACE_BASE_URL',
@@ -148,6 +149,7 @@ export const FREE_PROVIDER_TEMPLATES = [
   },
   {
     id: 'ollama',
+    supportsTools: false,
     name: 'Ollama (local)',
     envKey: 'OLLAMA_API_KEY', // not required; any local install works without a key
     baseURLKey: 'OLLAMA_BASE_URL',
@@ -161,6 +163,7 @@ export const FREE_PROVIDER_TEMPLATES = [
   },
   {
     id: 'lmstudio',
+    supportsTools: false,
     name: 'LM Studio (local)',
     envKey: 'LMSTUDIO_API_KEY', // not required; LM Studio runs without a key
     baseURLKey: 'LMSTUDIO_BASE_URL',

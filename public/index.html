@@ -306,6 +306,7 @@
     </div>
     <div class="tabs">
       <button class="tab-btn active" id="tabApis">🔑 APIs</button>
+      <button class="tab-btn" id="tabStats">📊 Estatísticas</button>
       <button class="tab-btn" id="tabUsers">👥 Usuários</button>
     </div>
     <div class="modal-body" id="settingsBody">Carregando…</div>
@@ -1121,6 +1122,7 @@ async function openSettings() {
 
 function renderSettings() {
   if (settingsTab === 'apis') renderApisTab();
+  else if (settingsTab === 'stats') renderStatsTab();
   else renderUsersTab();
 }
 
@@ -1134,7 +1136,7 @@ function renderApisTab() {
     card.className = 'provider-card';
     const epic = p.active ? '<span class="badge on">✅ ATIVA</span>' : '<span class="badge off">INATIVA</span>';
     const help = p.signup ? `<a class="help" href="${esc(p.signup)}" target="_blank" rel="noopener">🔑 pegar chave ↗</a>` : '';
-    card.innerHTML = `<div class="pc-head"><b style="font-size:13px">${esc(p.name)}</b>${epic}${help}</div>`
+    card.innerHTML = `<div class="pc-head"><b style="font-size:13px">${esc(p.name)}</b>${epic}<button class="copy-btn" data-test="${esc(p.id)}" title="Valida a chave direto no provedor">🔌 Testar</button>${help}</div>`
       + (p.note ? `<div class="pc-note">${esc(p.note)}</div>` : '');
     for (const f of p.fields) {
       if (f.key === 'ALLOW_REMOTE_CONFIG') continue;
@@ -1145,6 +1147,69 @@ function renderApisTab() {
       card.appendChild(row);
     }
     body.appendChild(card);
+  }
+}
+
+async function renderStatsTab() {
+  const body = $('settingsBody');
+  body.innerHTML = '<div class="pc-note">Carregando estatísticas…</div>';
+  try {
+    const j = await (await fetch('/v1/stats')).json();
+    const fmt = n => (n ?? 0).toLocaleString('pt-BR');
+    const ms = n => n >= 1000 ? (n / 1000).toFixed(1) + 's' : n + 'ms';
+    const cards = [
+      ['Requisições', `${fmt(j.summary.requests)} (${j.summary.okRate} ok)`],
+      ['Latência média', ms(j.summary.avgLatencyMs)],
+      ['Tokens in/out', `${fmt(j.summary.totalPromptTokens)} / ${fmt(j.summary.totalCompletionTokens)}`],
+      ['Cache (hits)', fmt(j.summary.cacheHits)],
+    ];
+    let html = `<div class="pc-note">Desde ${new Date(j.since).toLocaleString('pt-BR')} · ${esc(j.note)}</div>`;
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">`;
+    for (const [label, val] of cards) {
+      html += `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px"><div style="font-size:10px;color:var(--muted)">${esc(label)}</div><div style="font-size:16px;font-weight:600">${esc(String(val))}</div></div>`;
+    }
+    html += `</div>`;
+    if ((j.circuitsOpen || []).length) {
+      html += `<div class="pc-note" style="color:var(--red)">⚡ Circuit aberto: ${j.circuitsOpen.map(c => esc(c.id)).join(', ')}</div>`;
+    }
+    // per-model table
+    const models = (j.models || []).sort((a, b) => b.requests - a.requests).slice(0, 12);
+    if (models.length) {
+      html += `<div class="pc-note" style="margin-top:6px">Por modelo</div>
+      <div style="max-height:170px;overflow-y:auto;border:1px solid var(--border);border-radius:10px">
+      <table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="color:var(--muted)">
+      <th style="text-align:left;padding:5px 8px">Modelo</th><th style="padding:5px 6px">Reqs</th><th style="padding:5px 6px">Média</th><th style="padding:5px 6px">Tok in</th><th style="padding:5px 6px">Tok out</th>
+      </tr></thead><tbody>`;
+      for (const m of models) {
+        html += `<tr style="border-top:1px solid var(--border)"><td style="padding:5px 8px;overflow:hidden;text-overflow:ellipsis;max-width:210px;white-space:nowrap">${esc(m.model)}</td><td style="text-align:center;padding:5px 6px">${m.requests}</td><td style="text-align:center;padding:5px 6px">${ms(m.avgLatencyMs || 0)}</td><td style="text-align:center;padding:5px 6px">${fmt(m.tokensIn)}</td><td style="text-align:center;padding:5px 6px">${fmt(m.tokensOut)}</td></tr>`;
+      }
+      html += `</tbody></table></div>`;
+    }
+    // recent list
+    const recent = (j.recent || []).slice(0, 15);
+    if (recent.length) {
+      html += `<div class="pc-note" style="margin-top:10px">Últimas requisições</div>
+      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:10px">
+      <table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="color:var(--muted)">
+      <th style="text-align:left;padding:5px 8px">Hora</th><th style="text-align:left;padding:5px 6px">Resultado</th><th style="padding:5px 6px">Latência</th><th style="padding:5px 6px">Tentativas</th>
+      </tr></thead><tbody>`;
+      for (const r of recent) {
+        const time = new Date(r.ts).toLocaleTimeString('pt-BR');
+        const status = r.cached ? '💨 cache hit' : r.ok
+          ? `✅ ${(r.model || '').split('/').slice(-1)[0]}`
+          : `❌ ${esc((r.error || 'erro').slice(0, 44))}`;
+        const att = (r.attempts || []).length + (r.attempts && r.error ? 0 : r.cached ? 0 : (r.model ? 1 : 0));
+        const attList = (r.attempts || []).map(t => esc(t.model.split('/').slice(-1)[0]) + (t.error ? ' ✗' : '')).join(' → ') || (r.cached ? '(cache)' : '1');
+        html += `<tr style="border-top:1px solid var(--border)"><td style="padding:5px 8px;white-space:nowrap">${esc(time)}</td><td style="padding:5px 6px">${status}</td><td style="text-align:center;padding:5px 6px">${r.cached ? '—' : ms((r.attempts || []).reduce((a, t) => a + (t.ms || 0), 0))}</td><td style="padding:5px 6px;text-align:center">${attList}</td></tr>`;
+      }
+      html += `</tbody></table></div>`;
+    }
+    if (!j.summary.requests && !(j.models || []).length) {
+      html += `<div class="pc-note">Ainda sem requisições — mande uma mensagem no chat e volte aqui.</div>`;
+    }
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div class="pc-note">❌ ' + esc(e.message) + '</div>';
   }
 }
 
@@ -1212,6 +1277,28 @@ function renderUsersTab() {
     showConfigMsg(j.ok ? `Usuário "${name}" cadastrado! ✅` : '❌ ' + (j.error || ''), j.ok);
     if (j.ok) { await loadUsers(); openSettings(); }
   };
+}
+
+async function testProviderKey(testBtn, providerId) {
+  const card = testBtn.closest('.provider-card');
+  const values = {};
+  card.querySelectorAll('input[data-envkey]').forEach(inp => {
+    const v = inp.value.trim();
+    const original = inp.dataset.original || '';
+    if (v) values[inp.dataset.envkey] = v;
+    else if (original) values[inp.dataset.envkey] = original; // usa o que está salvo
+  });
+  testBtn.textContent = '⏳ Testando…';
+  const r = await fetchJSON('/v1/config/test', 'POST', { provider: providerId, values });
+  testBtn.textContent = '🔌 Testar';
+  if (r.ok && r.data.ok) {
+    testBtn.textContent = r.data.models != null ? `✅ Válida (${r.data.models} modelos)` : `✅ Válida${r.data.label ? ' (' + r.data.label + ')' : ''}`;
+    testBtn.style.color = 'var(--green)';
+  } else {
+    testBtn.textContent = '❌ ' + (r.error || r.data?.error || 'erro').slice(0, 40);
+    testBtn.style.color = 'var(--red)';
+  }
+  setTimeout(() => { testBtn.textContent = '🔌 Testar'; testBtn.style.color = ''; }, 8000);
 }
 
 async function fetchJSON(url, method, payload) {
@@ -1290,8 +1377,9 @@ $('settingsOverlay').addEventListener('click', e => { if (e.target === $('settin
 $('configSave').onclick = saveSettings;
 $('newChat').onclick = () => { activeId = null; renderChat(); renderConvList(); renderProjSelect(); $('sidebar').classList.remove('open'); $('input').focus(); };
 $('menuBtn').onclick = () => $('sidebar').classList.toggle('open');
-$('tabApis').onclick = () => { if (settingsTab === 'apis') return; settingsTab = 'apis'; $('tabApis').classList.add('active'); $('tabUsers').classList.remove('active'); $('configSave').style.display = ''; renderSettings(); };
-$('tabUsers').onclick = () => { if (settingsTab === 'users') return; settingsTab = 'users'; $('tabUsers').classList.add('active'); $('tabApis').classList.remove('active'); $('configSave').style.display = 'none'; renderSettings(); };
+$('tabApis').onclick = () => { if (settingsTab === 'apis') return; settingsTab = 'apis'; $('tabApis').classList.add('active'); $('tabStats').classList.remove('active'); $('tabUsers').classList.remove('active'); $('configSave').style.display = ''; renderSettings(); };
+$('tabStats').onclick = () => { if (settingsTab === 'stats') return; settingsTab = 'stats'; $('tabStats').classList.add('active'); $('tabApis').classList.remove('active'); $('tabUsers').classList.remove('active'); $('configSave').style.display = 'none'; renderSettings(); };
+$('tabUsers').onclick = () => { if (settingsTab === 'users') return; settingsTab = 'users'; $('tabUsers').classList.add('active'); $('tabApis').classList.remove('active'); $('tabStats').classList.remove('active'); $('configSave').style.display = 'none'; renderSettings(); };
 $('projSelect').onchange = changeProjSelect;
 $('projClose').onclick = () => $('projOverlay').classList.remove('open');
 $('projOverlay').addEventListener('click', e => { if (e.target === $('projOverlay')) $('projOverlay').classList.remove('open'); });
@@ -1316,6 +1404,9 @@ $('deckNext').onclick = () => deckNav(1);
 $('deckClose').onclick = () => { $('deck').classList.remove('open'); deckState = null; };
 
 document.addEventListener('click', e => {
+  const tst = e.target.closest('[data-test]');
+  if (tst) { testProviderKey(tst, tst.dataset.test); return; }
+
   const cb = e.target.closest('.cb-copy');
   if (cb) { navigator.clipboard.writeText(cb.dataset.code); toast('Código copiado!'); }
 
