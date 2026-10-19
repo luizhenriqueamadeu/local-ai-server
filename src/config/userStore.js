@@ -15,10 +15,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', '..', 'data');
 const usersPath = join(dataDir, 'users.json');
 const convsDir = join(dataDir, 'conversations');
+const projectsDir = join(dataDir, 'projects');
 
 function ensureDirs() {
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
   if (!existsSync(convsDir)) mkdirSync(convsDir, { recursive: true });
+  if (!existsSync(projectsDir)) mkdirSync(projectsDir, { recursive: true });
 }
 
 const AVATAR_MAX_CHARS = 300000; // ~220KB data URL
@@ -127,5 +129,61 @@ export function deleteConversation(userId, convId) {
   ensureDirs();
   const list = listConversations(userId).filter(c => c.id !== convId);
   writeFileSync(join(convsDir, `${userId}.json`), JSON.stringify(list));
+  return true;
+}
+
+// ---------------- Projects (per user) ----------------
+
+export function listProjects(userId) {
+  if (!safeId(userId)) return [];
+  ensureDirs();
+  try {
+    return JSON.parse(readFileSync(join(projectsDir, `${userId}.json`), 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+function saveProjects(userId, list) {
+  if (!safeId(userId)) throw new Error('userId inválido');
+  ensureDirs();
+  writeFileSync(join(projectsDir, `${userId}.json`), JSON.stringify(list, null, 2));
+}
+
+export function addProject(userId, { name, color } = {}) {
+  const cleanName = String(name || '').trim().slice(0, 50);
+  if (!cleanName) throw new Error('Nome do projeto é obrigatório');
+  const list = listProjects(userId);
+  if (list.some(p => p.name.toLowerCase() === cleanName.toLowerCase())) {
+    throw new Error(`Já existe um projeto "${cleanName}"`);
+  }
+  const project = {
+    id: 'p_' + randomUUID().replace(/-/g, '').slice(0, 10),
+    name: cleanName,
+    color: color || colorFor(cleanName),
+    createdAt: new Date().toISOString(),
+  };
+  list.push(project);
+  saveProjects(userId, list);
+  return project;
+}
+
+export function updateProject(userId, id, { name, color } = {}) {
+  if (!safeId(userId)) throw new Error('userId inválido');
+  const list = listProjects(userId);
+  const project = list.find(p => p.id === id);
+  if (!project) throw new Error('Projeto não encontrado');
+  if (name != null) {
+    const cleanName = String(name).trim().slice(0, 50);
+    if (cleanName) project.name = cleanName;
+  }
+  if (typeof color === 'string' && color) project.color = color;
+  saveProjects(userId, list);
+  return project;
+}
+
+export function removeProject(userId, id) {
+  if (!safeId(userId)) throw new Error('userId inválido');
+  saveProjects(userId, listProjects(userId).filter(p => p.id !== id));
   return true;
 }

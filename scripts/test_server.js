@@ -53,6 +53,44 @@ async function main() {
     failures++;
   }
 
+  // 2c. Usuários (login do chat web)
+  try {
+    const r = await fetch(`${base}/v1/users`);
+    const j = await r.json();
+    const oku = r.status === 200 && Array.isArray(j.users);
+    ok('GET /v1/users', oku, oku ? `${j.users.length} usuário(s) cadastrado(s)` : JSON.stringify(j).slice(0, 100));
+    if (!oku) failures++;
+  } catch (e) {
+    ok('GET /v1/users', false, e.message);
+    failures++;
+  }
+
+  // 2d. Projetos (agrupamento de conversas por usuário)
+  try {
+    const uid = 'testproj';
+    const cr = await (await fetch(`${base}/v1/projects?userId=${uid}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Proj Teste' })
+    })).json();
+    const ls = await (await fetch(`${base}/v1/projects?userId=${uid}`)).json();
+    const de = await (await fetch(`${base}/v1/projects/${cr.project?.id}?userId=${uid}`, { method: 'DELETE' })).json();
+    const okp = cr.success && Array.isArray(ls.projects) && de.success;
+    ok('Projetos (criar/listar/apagar)', okp, okp ? 'CRUD OK' : 'falhou');
+    if (!okp) failures++;
+  } catch (e) {
+    ok('Projetos (criar/listar/apagar)', false, e.message);
+    failures++;
+  }
+
+  // 2e. Path traversal em projects
+  try {
+    const j = await (await fetch(`${base}/v1/projects?userId=..%2Fetc`)).json();
+    ok('Projetos (path traversal)', Array.isArray(j.projects) && j.projects.length === 0, 'bloqueado');
+  } catch (e) {
+    ok('Projetos (path traversal)', false, e.message);
+    failures++;
+  }
+
   // 3. Listar modelos
   try {
     const r = await fetch(`${base}/v1/models`);

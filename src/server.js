@@ -9,14 +9,14 @@ import pino from 'pino';
 import pinoPretty from 'pino-pretty';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { ChatCompletionHandler } from './core/ChatCompletionHandler.js';
 import { providerFactory, ProviderFactory } from './providers/ProviderFactory.js';
 import { ModelRotationManager } from './core/ModelRotationManager.js';
 import { getAllModels, rebuildProviders } from './config/providers.js';
 import { FREE_PROVIDER_TEMPLATES } from './config/freeProviders.js';
 import { updateEnvFile, maskSecret } from './config/envManager.js';
-import { getUsers, addUser, updateUser, removeUser, listConversations, saveConversation, deleteConversation } from './config/userStore.js';
+import { getUsers, addUser, updateUser, removeUser, listConversations, saveConversation, deleteConversation, listProjects, addProject, updateProject, removeProject } from './config/userStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -406,6 +406,75 @@ app.delete('/v1/conversations/:id', (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+// ============ Projects (per user, groups conversations) ============
+
+app.get('/v1/projects', (req, res) => {
+  res.json({ projects: listProjects(req.query.userId) });
+});
+
+app.post('/v1/projects', (req, res) => {
+  try {
+    res.status(201).json({ success: true, project: addProject(req.query.userId, req.body || {}) });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+app.put('/v1/projects/:id', (req, res) => {
+  try {
+    res.json({ success: true, project: updateProject(req.query.userId, req.params.id, req.body || {}) });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+app.delete('/v1/projects/:id', (req, res) => {
+  try {
+    removeProject(req.query.userId, req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: { message: error.message, type: 'invalid_request' } });
+  }
+});
+
+// ============ Image generation (free, no API key - Pollinations.ai) ============
+
+const imagesDir = join(__dirname, '..', '..', 'data', 'images');
+
+// Generated images are served at /files/images/<name>
+app.use('/files/images', express.static(imagesDir, { maxAge: '30d', immutable: true }));
+
+app.post('/v1/images/generate', async (req, res) => {
+  try {
+    const prompt = String(req.body?.prompt || '').trim();
+    if (!prompt) {
+      return res.status(400).json({ error: { message: 'Descreva a imagem (prompt obrigatorio)', type: 'invalid_request' } });
+    }
+    const width = Math.min(Math.max(parseInt(req.body?.width) || 1024, 256), 1536);
+    const height = Math.min(Math.max(parseInt(req.body?.height) || 1024, 256), 1536);
+    const seed = Number.isInteger(req.body?.seed) ? req.body.seed : Math.floor(Math.random() * 1000000);
+
+    const upstream = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 1200))}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
+    logger.info({ prompt: prompt.slice(0, 80), width, height, seed }, 'Image generation requested');
+
+    const r = await fetch(upstream, { signal: AbortSignal.timeout(150000) });
+    if (!r.ok) throw new Error(`Pollinations HTTP ${r.status}`);
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length < 1000) throw new Error('imagem vazia do upstream');
+
+    mkdirSync(imagesDir, { recursive: true });
+    const ext = (r.headers.get('content-type') || '').includes('png') ? 'png' : 'jpg';
+    const name = `img_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6)}.${ext}`;
+    writeFileSync(join(imagesDir, name), buf);
+
+    logger.info({ file: name, bytes: buf.length }, 'Image generated');
+    res.json({ success: true, url: `/files/images/${name}`, prompt, seed, width, height, bytes: buf.length });
+  } catch (error) {
+    logger.warn({ error: error.message }, 'Image generation failed');
+    res.status(502).json({ error: { message: 'Falha ao gerar imagem: ' + error.message, type: 'server_error' } });
   }
 });
 

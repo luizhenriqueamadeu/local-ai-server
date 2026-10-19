@@ -18,9 +18,14 @@
   .layout { display: flex; height: 100vh; }
 
   /* ---- Sidebar ---- */
-  .sidebar { width: 240px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-  .newchat-btn { margin: 10px; padding: 10px; background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 14px; text-align: left; }
+  .sidebar { width: 250px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .newchat-btn { margin: 10px 10px 6px; padding: 10px; background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 14px; text-align: left; }
   .newchat-btn:hover { border-color: var(--accent); }
+  .proj-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; padding: 6px 10px; }
+  .proj-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg3); color: var(--muted); font-size: 11px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proj-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .proj-chip.active { border-color: var(--accent); color: var(--text); }
+  .proj-chip:hover { color: var(--text); }
   .conv-list { flex: 1; overflow-y: auto; padding: 4px 8px; }
   .conv-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .conv-item:hover { background: var(--bg3); }
@@ -51,10 +56,13 @@
   /* ---- Chat area ---- */
   .chat { flex: 1; overflow-y: auto; padding: 24px 16px; }
   .chat-inner { max-width: 780px; margin: 0 auto; }
-  .welcome { text-align: center; margin-top: 12vh; color: var(--muted); }
+  .welcome { text-align: center; margin-top: 14vh; color: var(--muted); }
   .welcome .big { font-size: 44px; margin-bottom: 12px; }
   .welcome h2 { color: var(--text); margin-bottom: 8px; font-weight: 500; }
   .welcome p { font-size: 14px; }
+  .welcome .tools { display: flex; gap: 10px; justify-content: center; margin-top: 22px; flex-wrap: wrap; }
+  .welcome .tool-hint { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-size: 12px; cursor: pointer; }
+  .welcome .tool-hint:hover { border-color: var(--accent); color: var(--text); }
   .msg { margin-bottom: 18px; display: flex; gap: 12px; }
   .msg .avatar, .msg .avatar-letter { width: 30px; height: 30px; font-size: 14px; }
   .msg.user .avatar { background: #343b4d; }
@@ -69,9 +77,11 @@
   .msg .content h1, .msg .content h2, .msg .content h3 { margin: 14px 0 8px; }
   .msg .content blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--muted); margin: 8px 0; }
   .msg .content code.inline { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 13px; font-family: Consolas, Monaco, monospace; }
-  .msg .actions { margin-top: 4px; }
+  .msg .actions { margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; }
   .copy-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; font-size: 11px; padding: 3px 8px; cursor: pointer; }
   .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+  .img-wrap { max-width: 480px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 4px 0; }
+  .img-wrap img { display: block; width: 100%; }
   .codeblock { position: relative; margin: 10px 0; background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .codeblock .cb-head { display: flex; justify-content: space-between; align-items: center; padding: 5px 12px; background: var(--bg3); font-size: 11px; color: var(--muted); }
   .codeblock .cb-copy { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; }
@@ -81,8 +91,16 @@
   @keyframes blink { 50% { opacity: 0; } }
 
   /* ---- Composer ---- */
-  .composer { padding: 12px 16px 16px; border-top: 1px solid var(--border); background: var(--bg2); }
+  .composer { padding: 10px 16px 16px; border-top: 1px solid var(--border); background: var(--bg2); }
   .composer-inner { max-width: 780px; margin: 0 auto; }
+  .mode-bar { display: none; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: var(--accent2); }
+  .mode-bar.show { display: flex; }
+  .mode-bar .pattern { background: rgba(138,127,252,.15); border: 1px solid var(--accent); border-radius: 999px; padding: 4px 12px; }
+  .mode-bar button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+  .tools-row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .tool-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; font-size: 12px; padding: 5px 11px; cursor: pointer; }
+  .tool-btn:hover { color: var(--text); border-color: var(--accent); }
+  .proj-select { margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; font-size: 11px; padding: 5px 8px; max-width: 190px; cursor: pointer; }
   .input-wrap { display: flex; align-items: flex-end; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 14px; padding: 8px 10px; }
   .input-wrap:focus-within { border-color: var(--accent); }
   #input { flex: 1; background: none; border: none; outline: none; color: var(--text); font: inherit; resize: none; max-height: 140px; line-height: 1.5; }
@@ -107,8 +125,9 @@
   .badge.off { background: rgba(139,147,161,.15); color: var(--muted); }
   .modal a.help { font-size: 11px; color: var(--accent2); text-decoration: none; margin-left: auto; }
   .frow { display: flex; gap: 8px; margin-bottom: 6px; }
-  .frow input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
-  .frow input:focus { border-color: var(--accent); }
+  .frow input, .frow select, .frow textarea { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; font-family: inherit; }
+  .frow textarea { min-height: 64px; resize: vertical; }
+  .frow input:focus, .frow textarea:focus { border-color: var(--accent); }
   .frow label { width: 150px; flex-shrink: 0; font-size: 11px; color: var(--muted); padding-top: 9px; }
   .pc-note { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
   .btn { border: none; border-radius: 9px; padding: 8px 16px; cursor: pointer; font-size: 13px; }
@@ -130,7 +149,6 @@
   .user-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 14px; padding: 16px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; text-align: center; }
   .user-card:hover { border-color: var(--accent); background: var(--bg); }
   .user-card .avatar, .user-card .avatar-letter { width: 56px; height: 56px; font-size: 24px; }
-  .user-card .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
   .user-card .uc-name { font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .user-row { display: flex; align-items: center; gap: 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
   .user-row input[type=text] { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
@@ -138,6 +156,18 @@
   .arrow-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px; flex-shrink: 0; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 10px 18px; font-size: 13px; display: none; z-index: 99; }
   .toast.show { display: block; }
+
+  /* Deck (presentação) */
+  .deck { position: fixed; inset: 0; background: #06070a; display: none; z-index: 80; }
+  .deck.open { display: block; }
+  .deck .slide { position: absolute; inset: 0; display: none; padding: 7vh 9vw; overflow-y: auto; }
+  .deck .slide.active { display: block; }
+  .deck .slide h2 { color: var(--accent2); margin: 0 0 22px; font-size: clamp(22px, 4.5vw, 40px); border-bottom: 2px solid #39404d; padding-bottom: 12px; }
+  .deck .slide li { font-size: clamp(15px, 2.4vw, 24px); margin: 12px 0; color: var(--text); }
+  .deck .slide-code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin: 12px 0; overflow-x: auto; font-family: Consolas, monospace; font-size: clamp(11px, 1.6vw, 15px); color: #c8d1e0; white-space: pre-wrap; }
+  .deck-bar { position: fixed; bottom: 14px; right: 18px; display: flex; gap: 8px; align-items: center; z-index: 81; }
+  .deck-bar button { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 9px; padding: 8px 14px; cursor: pointer; font-size: 14px; }
+  .deck-bar .deck-count { color: var(--muted); font-size: 12px; }
 
   /* ---- Mobile ---- */
   .menu-btn { display: none; }
@@ -154,6 +184,7 @@
 <div class="layout">
   <aside class="sidebar" id="sidebar">
     <button class="newchat-btn" id="newChat">＋ Nova conversa</button>
+    <div class="proj-row" id="projRow"></div>
     <div class="conv-list" id="convList"></div>
     <div class="sidebar-footer">Local AI Server<br>API: /v1/chat/completions</div>
   </aside>
@@ -176,13 +207,29 @@
         <div class="welcome" id="welcome">
           <div class="big">✨</div>
           <h2>Bem-vindo ao seu servidor de IA</h2>
-          <p>A rotação automática escolhe o melhor modelo <b>free</b> disponível.<br>Clique em ⚙️ para configurar APIs e usuários.</p>
+          <p>A rotação automática escolhe o melhor modelo <b>free</b> disponível.<br>Use a barra ➕ para criar imagens, documentos e apresentações.</p>
+          <div class="tools">
+            <span class="tool-hint" data-open="image">🖼️ Criar imagem</span>
+            <span class="tool-hint" data-open="document">📄 Criar documento</span>
+            <span class="tool-hint" data-open="presentation">📊 Criar apresentação</span>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="composer">
       <div class="composer-inner">
+        <div class="mode-bar" id="modeBar">
+          <span id="modeLabel" class="pattern">📄 Documento</span>
+          <button id="modeOff" title="Sair do modo">✕</button>
+          <span style="color:var(--muted)">escreva o tema e envie</span>
+        </div>
+        <div class="tools-row">
+          <button class="tool-btn" id="btnImage" title="Criar imagem com IA">🖼️ Imagem</button>
+          <button class="tool-btn" id="btnDocument" title="Criar documento (.doc, .html, imprime)">📄 Documento</button>
+          <button class="tool-btn" id="btnPresentation" title="Criar apresentação de slides">📊 Apresentação</button>
+          <select class="proj-select" id="projSelect" title="Projeto (nova conversa entra neste projeto)"></select>
+        </div>
         <div class="input-wrap">
           <textarea id="input" rows="1" placeholder="Envie uma mensagem…"></textarea>
           <button class="stop-btn" id="stopBtn" style="display:none" title="Parar resposta">■ Parar</button>
@@ -206,6 +253,50 @@
   </div>
 </div>
 
+<!-- Image modal -->
+<div class="overlay" id="imageOverlay">
+  <div class="modal small">
+    <div class="modal-head"><h3>🖼️ Criar imagem</h3><button class="icon-btn" id="imageClose">✕</button></div>
+    <div class="modal-body">
+      <div class="pc-note">Geração de imagem com IA gratuita (sem chave). Demora ~10–30 segundos.</div>
+      <div class="frow">
+        <label>Descrição</label>
+        <textarea id="imgPrompt" placeholder="Ex: gato astronauta estilo aquarela, cores suaves"></textarea>
+      </div>
+      <div class="frow">
+        <label>Tamanho</label>
+        <select id="imgSize">
+          <option value="1024x1024">Quadrado 1024×1024</option>
+          <option value="1280x720">Paisagem 1280×720</option>
+          <option value="720x1280">Retrato 720×1280</option>
+        </select>
+      </div>
+      <div class="pc-note" id="imgStatus" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn primary" id="imgGenerate">Gerar imagem</button>
+    </div>
+  </div>
+</div>
+
+<!-- Projeto modal -->
+<div class="overlay" id="projOverlay">
+  <div class="modal small">
+    <div class="modal-head"><h3>📁 Projetos</h3><button class="icon-btn" id="projClose">✕</button></div>
+    <div class="modal-body">
+      <div class="pc-note">Agrupe conversas por setor, cliente ou assunto (por usuário). Aparecem como chips na lateral.</div>
+      <div id="projManageList"></div>
+      <div class="provider-card">
+        <div class="pc-head"><b style="font-size:13px">➕ Novo projeto</b></div>
+        <div class="frow">
+          <input id="projName" type="text" placeholder="Nome (ex: Cliente X, Financeiro)" maxlength="50">
+          <button class="btn primary" id="projAdd" style="padding:6px 12px">Criar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Settings modal -->
 <div class="overlay" id="settingsOverlay">
   <div class="modal">
@@ -224,6 +315,17 @@
     </div>
   </div>
 </div>
+
+<!-- Deck viewer -->
+<div class="deck" id="deck">
+  <div class="deck-bar">
+    <span class="deck-count" id="deckCount"></span>
+    <button id="deckPrev" title="Anterior (←)">←</button>
+    <button id="deckNext" title="Próxima (→)">→</button>
+    <button id="deckClose" title="Fechar (ESC)">✕ Fechar</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -235,11 +337,15 @@ const $ = id => document.getElementById(id);
 let me = JSON.parse(localStorage.getItem(ME_KEY) || 'null');   // {id,name,avatar,color} | {id:'guest'}
 let users = [];
 let conversations = [];
+let projects = [];
+let activeProjId = 'all';   // filtro da lateral; 'all' = todas
 let activeId = null;
 let configCache = null;
 let abortCtrl = null;
 let generating = false;
 let settingsTab = 'apis';
+let mode = null;            // null | 'document' | 'presentation'
+let deckState = null;
 
 // ================= Helpers =================
 function avatarHTML(u, size) {
@@ -254,12 +360,13 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
 const safeId = id => /^[a-z0-9_]{1,40}$/i.test(String(id || ''));
 
 function isServerUser() { return me && safeId(me.id) && me.id !== 'guest'; }
+function projName(id) { const p = projects.find(x => x.id === id); return p ? p.name : null; }
 
 function renderMd(text) {
   const parts = String(text).split(/```/);
   let html = '';
   for (let i = 0; i < parts.length; i++) {
-    if (i % 2 === 1) { // code fence content: first line = lang
+    if (i % 2 === 1) {
       const nl = parts[i].indexOf('\n');
       const lang = nl === -1 ? '' : parts[i].slice(0, nl).trim();
       const code = nl === -1 ? parts[i] : parts[i].slice(nl + 1);
@@ -307,13 +414,94 @@ function fmtMd(text) {
   }
 }
 
+// ================= Downloads / exports =================
+function download(name, content, mime = 'text/plain') {
+  const blob = new Blob([content], { type: mime + ';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function buildDocHTML(markdown, title) {
+  const body = renderMd(markdown);
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
+<title>${esc(title || 'Documento')}</title>
+<style>
+body{font-family:Georgia,'Times New Roman',serif;max-width:210mm;margin:0 auto;padding:22mm 18mm;color:#1a1a1a;line-height:1.6;font-size:12pt}
+h1{font-size:20pt;border-bottom:2px solid #333;padding-bottom:6px}h2{font-size:15pt;margin-top:22px}h3{font-size:13pt}
+blockquote{border-left:3px solid #888;padding-left:12px;color:#444}
+code{background:#f2f2f2;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt}
+pre{background:#f5f5f5;border:1px solid #ddd;padding:10px;border-radius:6px;overflow-x:auto;font-family:Consolas,monospace;font-size:10pt}
+table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #999;padding:6px 9px;text-align:left}th{background:#eee}
+img{max-width:100%}@media print{body{padding:0}@page{margin:2cm}}
+</style></head><body>${body}</body></html>`;
+}
+
+function markdownToSlides(markdown) {
+  const blocks = String(markdown).split(/\n(?=##\s)/).map(s => s.trim()).filter(Boolean);
+  const slides = [];
+  for (const b of blocks) {
+    const nl = b.indexOf('\n');
+    const title = nl === -1 ? b : b.slice(0, nl).replace(/^#+\s*/, '').trim();
+    const body = nl === -1 ? '' : b.slice(nl + 1).trim();
+    slides.push({ title: title || 'Slide', body });
+  }
+  if (slides.every(s => s.body === '')) { // sem ## no conteúdo: agrupa parágrafos
+    const chunks = String(markdown).split(/\n{2,}/).filter(c => c.trim());
+    return chunks.slice(0, 20).map((c, i) => ({ title: 'Slide ' + (i + 1), body: c.trim() }));
+  }
+  return slides;
+}
+
+function deckScript() {
+  return '<script>'
+    + 'var slides=document.querySelectorAll(".s"),i=0;'
+    + 'function show(){slides.forEach(function(x,n){x.classList.toggle("on",n===i)});'
+    + 'document.getElementById("cnt").textContent=(i+1)+" / "+slides.length}'
+    + 'function go(d){i=Math.min(Math.max(i+d,0),slides.length-1);show()}'
+    + 'window.addEventListener("keydown",function(e){'
+    + 'if(e.key==="ArrowRight"||e.key===" ")go(1);'
+    + 'else if(e.key==="ArrowLeft")go(-1);'
+    + 'else if(e.key==="Escape"){/*nada*/}});show();'
+    + '<\/script>';
+}
+
+function fullDeckFile(title, markdown) {
+  const slides = markdownToSlides(markdown);
+  const sec = slides.map(s => {
+    const chunks = s.body.split(/\n{2,}/).filter(Boolean);
+    const inner = chunks.map(p =>
+      p.trim().startsWith('```')
+        ? `<div class="slide-code">${esc(p.replace(/```\w*\n?/g, '').replace(/```\s*$/, '').trimEnd())}</div>`
+        : renderMd(p)).join('');
+    return `<section class="s"><h2>${esc(s.title)}</h2>${inner}</section>`;
+  }).join('\n');
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(title || 'Apresentação')}</title>
+<style>
+html,body{height:100%;margin:0;background:#0d1014;color:#e8eaed;font-family:system-ui,"Segoe UI",Roboto,sans-serif}
+.s{position:absolute;inset:0;display:none;padding:7vh 9vw;overflow:auto}
+.s.on{display:block}
+.s h2{color:#b39ff8;border-bottom:2px solid #39404d;padding-bottom:12px;font-size:clamp(22px,4.5vw,40px);margin:0 0 22px}
+.s ul{margin:4px 0 10px 22px}
+.s li{font-size:clamp(15px,2.4vw,24px);margin:12px 0}
+.slide-code{background:#0a0c0f;border:1px solid #2a2f3a;border-radius:10px;padding:12px 16px;font-family:Consolas,monospace;white-space:pre-wrap;font-size:clamp(11px,1.6vw,15px);color:#c8d1e0}
+.bar{position:fixed;bottom:14px;right:18px;display:flex;gap:8px;align-items:center}
+.bar button{background:#191d24;border:1px solid #2a2f3a;color:#e8eaed;border-radius:9px;padding:8px 14px;cursor:pointer}
+.cnt{color:#8b93a1;font-size:12px}
+</style></head><body>${sec}
+<div class="bar"><span class="cnt" id="cnt"></span><button onclick="go(-1)">←</button><button onclick="go(1)">→</button></div>
+${deckScript()}</body></html>`;
+}
+
 // ================= Users / login =================
 async function loadUsers() {
   try { users = (await (await fetch('/v1/users')).json()).users || []; }
   catch { users = []; }
   if (me && me.id !== 'guest' && !users.find(u => u.id === me.id)) { me = null; localStorage.removeItem(ME_KEY); }
   if (!me) showPicker();
-  else { renderUserChip(); await loadConversations(); }
+  else { renderUserChip(); await loadUserStores(); }
 }
 
 function showPicker() {
@@ -340,9 +528,11 @@ async function selectUser(u) {
   localStorage.setItem(ME_KEY, JSON.stringify(me));
   activeId = null;
   conversations = [];
+  projects = [];
+  activeProjId = 'all';
   $('pickerOverlay').classList.remove('open');
   renderUserChip();
-  await loadConversations();
+  await loadUserStores();
   toast(`Olá, ${u.name === 'Convidado' ? 'convidado' : u.name}! 👋`);
 }
 
@@ -351,18 +541,88 @@ function renderUserChip() {
   $('userChip').onclick = () => { loadUsers().then(showPicker); };
 }
 
-// ================= Conversations (server-side per user) =================
-async function loadConversations() {
-  if (!me) { conversations = []; }
-  else if (me.id === 'guest') { conversations = JSON.parse(localStorage.getItem(GUEST_KEY) || '[]'); }
-  else {
+// ================= Conversations / projects (per user) =================
+async function loadUserStores() {
+  if (isServerUser()) {
     try {
-      conversations = (await (await fetch(`/v1/conversations?userId=${encodeURIComponent(me.id)}`)).json()).conversations || [];
-    } catch { conversations = []; }
+      const [c, p] = await Promise.all([
+        fetch(`/v1/conversations?userId=${encodeURIComponent(me.id)}`).then(r => r.json()),
+        fetch(`/v1/projects?userId=${encodeURIComponent(me.id)}`).then(r => r.json()),
+      ]);
+      conversations = c.conversations || [];
+      projects = p.projects || [];
+    } catch { conversations = []; projects = []; }
+  } else {
+    conversations = JSON.parse(localStorage.getItem(GUEST_KEY) || '[]');
+    projects = JSON.parse(localStorage.getItem(GUEST_PROJ_KEY) || '[]');
   }
   activeId = conversations[0]?.id || null;
+  renderProjRow();
+  renderProjSelect();
   renderConvList();
   renderChat();
+}
+const GUEST_PROJ_KEY = 'local_ai_projects_v1';
+
+function persistProjects() {
+  if (isServerUser()) return; // projetos ficam server-side via endpoints
+  localStorage.setItem(GUEST_PROJ_KEY, JSON.stringify(projects));
+}
+
+function renderProjRow() {
+  const row = $('projRow');
+  row.innerHTML = '';
+  const all = document.createElement('span');
+  all.className = 'proj-chip' + (activeProjId === 'all' ? ' active' : '');
+  all.textContent = 'Todas';
+  all.onclick = () => { activeProjId = 'all'; renderProjRow(); renderProjSelect(); renderConvList(); };
+  row.appendChild(all);
+  for (const p of projects) {
+    const chip = document.createElement('span');
+    chip.className = 'proj-chip' + (activeProjId === p.id ? ' active' : '');
+    chip.innerHTML = `<span class="dot" style="background:${esc(p.color || 'var(--accent)')}"></span>${esc(p.name)}`;
+    chip.onclick = () => { activeProjId = p.id; renderProjRow(); renderProjSelect(); renderConvList(); };
+    row.appendChild(chip);
+  }
+  const add = document.createElement('span');
+  add.className = 'proj-chip';
+  add.textContent = '＋ Projeto';
+  add.title = 'Gerenciar projetos';
+  add.onclick = openProjManager;
+  row.appendChild(add);
+}
+
+function renderProjSelect() {
+  const sel = $('projSelect');
+  const conv = getActive();
+  sel.innerHTML = '';
+  const o0 = document.createElement('option');
+  o0.value = 'all';
+  o0.textContent = conv ? '📁 Sem projeto' : '📁 (nova conversa aqui)';
+  sel.appendChild(o0);
+  for (const p of projects) {
+    const o = document.createElement('option');
+    o.value = p.id;
+    o.textContent = '📁 ' + p.name;
+    sel.appendChild(o);
+  }
+  sel.value = conv ? (conv.projectId || 'all') : (activeProjId !== 'all' ? activeProjId : 'all');
+  if (sel.selectedIndex === -1) sel.value = 'all';
+}
+
+function changeProjSelect() {
+  const sel = $('projSelect');
+  const conv = getActive();
+  if (conv) {
+    conv.projectId = sel.value === 'all' ? null : sel.value;
+    persistConv(conv);
+    renderConvList();
+    toast(sel.value === 'all' ? 'Conversa sem projeto' : 'Movida para: ' + projName(sel.value));
+  } else {
+    activeProjId = sel.value;
+    renderProjRow();
+    renderConvList();
+  }
 }
 
 function persistConv(conv) {
@@ -387,21 +647,32 @@ function removeConv(id) {
 function getActive() { return conversations.find(c => c.id === activeId) || null; }
 
 // ================= Sidebar & chat render =================
+function visibleConvs() {
+  return activeProjId === 'all' ? conversations : conversations.filter(c => c.projectId === activeProjId);
+}
+
 function renderConvList() {
   const list = $('convList');
   list.innerHTML = '';
-  for (const c of conversations) {
+  for (const c of visibleConvs()) {
     const div = document.createElement('div');
     div.className = 'conv-item' + (c.id === activeId ? ' active' : '');
-    div.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis">${esc(c.title || 'Sem título')}</span><button class="del" title="Apagar">🗑</button>`;
-    div.onclick = () => { activeId = c.id; renderConvList(); renderChat(); $('sidebar').classList.remove('open'); };
+    const pcolor = projects.find(p => p.id === c.projectId)?.color;
+    div.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis">${pcolor ? `<span class="dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${esc(pcolor)};margin-right:5px"></span>` : ''}${esc(c.title || 'Sem título')}</span><button class="del" title="Apagar">🗑</button>`;
+    div.onclick = () => { activeId = c.id; renderConvList(); renderChat(); renderProjSelect(); $('sidebar').classList.remove('open'); };
     div.querySelector('.del').onclick = e => {
       e.stopPropagation();
       removeConv(c.id);
-      if (activeId === c.id) activeId = conversations[0]?.id || null;
-      renderConvList(); renderChat();
+      if (activeId === c.id) activeId = visibleConvs()[0]?.id || null;
+      renderConvList(); renderChat(); renderProjSelect();
     };
     list.appendChild(div);
+  }
+  if (visibleConvs().length === 0 && activeProjId !== 'all') {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:11px;color:var(--muted);padding:8px 10px';
+    empty.textContent = 'Nenhuma conversa neste projeto';
+    list.appendChild(empty);
   }
 }
 
@@ -416,19 +687,57 @@ function renderChat() {
   chat.scrollTop = chat.scrollHeight;
 }
 
+function msgActionsHTML(m) {
+  let html = '';
+  if (!m.streaming) {
+    if (m.kind === 'image' && m.image) {
+      const file = m.image.prompt.slice(0, 24).replace(/[^\w]+/g, '_') || 'imagem';
+      html += `<button class="copy-btn" data-act="img-download" style="color:#e8eaed">⬇️ Baixar</button>`;
+      html += `<button class="copy-btn" data-act="img-regen">🔁 Gerar outra</button>`;
+    } else if (m.kind === 'document' && m.content) {
+      const t = docTitle(m.content);
+      html += `<button class="copy-btn" data-act="doc-word" data-title="${esc(t)}">⬇️ .doc (Word)</button>`;
+      html += `<button class="copy-btn" data-act="doc-html" data-title="${esc(t)}">⬇️ .html</button>`;
+      html += `<button class="copy-btn" data-act="doc-md" data-title="${esc(t)}">⬇️ .md</button>`;
+      html += `<button class="copy-btn" data-act="doc-print" data-title="${esc(t)}">🖨 Imprimir/PDF</button>`;
+      html += `<button class="copy-btn" data-text="${esc(m.content)}">copiar texto</button>`;
+    } else if (m.kind === 'presentation' && m.content) {
+      const t = docTitle(m.content);
+      html += `<button class="copy-btn" data-act="pres-play" style="background:var(--accent);color:#fff;border-color:var(--accent)">▶️ Apresentar</button>`;
+      html += `<button class="copy-btn" data-act="doc-deck" data-title="${esc(t)}">⬇️ deck .html</button>`;
+      html += `<button class="copy-btn" data-act="doc-md" data-title="${esc(t)}">⬇️ .md</button>`;
+    } else if (m.role === 'assistant' && m.content) {
+      html += `<button class="copy-btn" data-text="${esc(m.content)}">copiar resposta</button>`;
+    }
+  }
+  return html;
+}
+
+function docTitle(md) {
+  const first = String(md).split('\n').find(l => /^#\s/.test(l.trim()));
+  return (first ? first.replace(/^#\s*/, '') : 'documento').slice(0, 40).trim();
+}
+
 function renderMsg(m, conv) {
   const div = document.createElement('div');
   div.className = 'msg ' + m.role;
   div.dataset.mid = m.id;
   const meOut = m.role === 'user' ? me : null;
   const owner = m.role === 'user' ? (meOut ? meOut.name : 'Você') : (m.model || 'Assistente');
+  const kindLabel = m.kind === 'document' ? '📄 documento' : m.kind === 'presentation' ? '📊 apresentação' : m.kind === 'image' ? '🖼️ imagem' : '';
+  let contentHTML = '';
+  if (m.kind === 'image' && m.image) {
+    contentHTML = `<div class="img-wrap"><img src="${m.image.url}" alt="" loading="lazy"></div>`;
+  } else {
+    contentHTML = renderMd(m.content);
+  }
   const avatarOut = m.role === 'user' ? avatarHTML(meOut, 30) : '<div class="avatar" style="background:linear-gradient(135deg,var(--accent),#d78cf8);display:flex;align-items:center;justify-content:center">🤖</div>';
   div.innerHTML = `
     ${avatarOut}
     <div class="body">
-      <div class="meta"><span>${esc(owner)}</span>${m.streaming ? '<span style="color:var(--accent2)">digitando…</span>' : ''}</div>
-      <div class="content">${renderMd(m.content)}${m.streaming ? '<span class="cursor-blink"></span>' : ''}</div>
-      ${!m.streaming && m.role === 'assistant' && m.content ? '<div class="actions"><button class="copy-btn" data-text="' + esc(m.content) + '">copiar resposta</button></div>' : ''}
+      <div class="meta"><span>${esc(owner)}</span>${kindLabel ? `<span>${kindLabel}</span>` : ''}${m.streaming ? '<span style="color:var(--accent2)">digitando…</span>' : ''}${m.image ? `<span style="color:var(--muted)">seed ${m.image.seed} · ${m.image.width}×${m.image.height}</span>` : ''}</div>
+      <div class="content">${contentHTML}${m.streaming ? '<span class="cursor-blink"></span>' : ''}</div>
+      <div class="actions" data-mid-actions="${m.id}">${msgActionsHTML(m)}</div>
     </div>`;
   return div;
 }
@@ -443,21 +752,29 @@ function updateMsgDOM(m, conv) {
 }
 
 // ================= Sending =================
+const DOC_PROMPT = t => `Crie um DOCUMENTO COMPLETO, profissional e pronto para uso sobre: "${t}".
+Responda SOMENTE com o conteúdo do documento em Markdown (sem frases como "claro, aqui está").
+Estrutura: título principal (#), resumo executivo curto, seções bem organizadas (##), listas e tabelas quando ajudar, e uma conclusão. Português.`;
+const PRES_PROMPT = t => `Crie uma APRESENTAÇÃO de slides sobre: "${t}".
+FORMATO OBRIGATÓRIO: um slide por bloco, cada slide começa com "## Título do Slide" seguido de 3-6 bullets curtos ("-" e "•") — sem parágrafos longos.
+Inclua de 7 a 10 slides: título (+# Subtítulo/autor), agenda, conteúdo principal, conclusão e encerramento. Português.`;
+
 async function send() {
   const input = $('input');
   const text = input.value.trim();
   if (!text || generating || !me) return;
 
-  if (!getActive()) {
-    const conv = { id: 'c' + Date.now(), title: text.slice(0, 40), updatedAt: new Date().toISOString(), messages: [] };
-    conversations.unshift(conv);
-    activeId = conv.id;
-  }
+  if (!getActive()) newConversation();
   const conv = getActive();
-  renderConvList();
 
-  const userMsg = { id: 'm' + Date.now(), role: 'user', content: text };
-  const asstMsg = { id: 'm' + (Date.now() + 1), role: 'assistant', content: '', model: $('modelSelect').value, streaming: true };
+  const isCreation = mode !== null;
+  let display = text, api = text, kind = null;
+  if (mode === 'document') { display = '📄 Criar documento: ' + text; api = DOC_PROMPT(text); kind = 'document'; }
+  if (mode === 'presentation') { display = '📊 Criar apresentação: ' + text; api = PRES_PROMPT(text); kind = 'presentation'; }
+
+  renderConvList();
+  const userMsg = { id: 'm' + Date.now(), role: 'user', content: display };
+  const asstMsg = { id: 'm' + (Date.now() + 1), role: 'assistant', content: '', model: $('modelSelect').value, streaming: true, kind: isCreation ? kind : undefined };
   conv.messages.push(userMsg, asstMsg);
   conv.updatedAt = new Date().toISOString();
   $('welcome').style.display = 'none';
@@ -466,6 +783,7 @@ async function send() {
   persistConv(conv);
   input.value = ''; input.style.height = 'auto';
   setGenerating(true);
+  setMode(null);
 
   abortCtrl = new AbortController();
   try {
@@ -474,7 +792,12 @@ async function send() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: $('modelSelect').value,
-        messages: conv.messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content })),
+        messages: conv.messages.filter(m => !m.streaming && m.kind !== 'image').map(m => ({
+          role: m.role,
+          content: (m.role === 'user' && /📄 Criar documento: /.test(m.content)) ? DOC_PROMPT(m.content.replace('📄 Criar documento: ', ''))
+            : (m.role === 'user' && /📊 Criar apresentação: /.test(m.content)) ? PRES_PROMPT(m.content.replace('📊 Criar apresentação: ', ''))
+            : m.content,
+        })),
         stream: true,
       }),
       signal: abortCtrl.signal,
@@ -528,10 +851,211 @@ async function send() {
   }
 }
 
+function newConversation() {
+  const conv = { id: 'c' + Date.now(), title: 'Sem título', projectId: activeProjId !== 'all' ? activeProjId : null, updatedAt: new Date().toISOString(), messages: [] };
+  conversations.unshift(conv);
+  activeId = conv.id;
+  renderConvList();
+  renderChat();
+  renderProjSelect();
+  return conv;
+}
+
+async function generateImage(prompt, width, height, { notify } = {}) {
+  const res = await fetch('/v1/images/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, width, height }),
+  });
+  const j = await res.json();
+  if (!res.ok) throw new Error(j.error?.message || `HTTP ${res.status}`);
+  if (!getActive()) newConversation();
+  const conv = getActive();
+  const msg = { id: 'm' + Date.now(), role: 'assistant', kind: 'image', content: '🖼️ Imagem gerada', image: { url: j.url, prompt, seed: j.seed, width, height } };
+  const userMsg = { id: 'm' + (Date.now() - 1), role: 'user', content: '🖼️ Criar imagem: ' + prompt };
+  conv.messages.push(userMsg, msg);
+  conv.updatedAt = new Date().toISOString();
+  if (conv.title === 'Sem título') conv.title = '🖼️ ' + prompt.slice(0, 34);
+  $('welcome').style.display = 'none';
+  $('chat').querySelector('.chat-inner').appendChild(renderMsg(userMsg, conv));
+  updateMsgDOM(msg, conv);
+  persistConv(conv);
+  renderConvList();
+  return j;
+}
+
 function setGenerating(on) {
   generating = on;
   $('sendBtn').style.display = on ? 'none' : 'block';
   $('stopBtn').style.display = on ? 'block' : 'none';
+}
+
+// ================= Modos de criação =================
+function setMode(m) {
+  mode = m;
+  const bar = $('modeBar');
+  if (!m) { bar.classList.remove('show'); return; }
+  $('modeLabel').textContent = m === 'document' ? '📄 Documento' : '📊 Apresentação';
+  bar.classList.add('show');
+  $('input').placeholder = m === 'document' ? 'Tema do documento… (ex: política de reembolso da empresa)' : 'Tema da apresentação… (ex: resultados do trimestre)';
+  $('input').focus();
+}
+
+// ================= Images =================
+function openImageModal() {
+  $('imageOverlay').classList.add('open');
+  $('imgStatus').textContent = '';
+  $('imgGenerate').disabled = false;
+  $('imgGenerate').textContent = 'Gerar imagem';
+  $('imgPrompt').focus();
+}
+
+async function runImage() {
+  const prompt = $('imgPrompt').value.trim();
+  if (!prompt) { $('imgStatus').textContent = '⚠️ Escreva uma descrição.'; return; }
+  const [w, h] = $('imgSize').value.split('x').map(Number);
+  $('imgGenerate').disabled = true;
+  $('imgStatus').textContent = '⏳ Gerando… (~10–30s)';
+  try {
+    await generateImage(prompt, w, h);
+    $('imageOverlay').classList.remove('open');
+    $('imgPrompt').value = '';
+    toast('Imagem gerada! 🖼️');
+  } catch (e) {
+    $('imgStatus').textContent = '❌ ' + e.message;
+  } finally {
+    $('imgGenerate').disabled = false;
+    $('imgGenerate').textContent = 'Gerar imagem';
+  }
+}
+
+// ================= Deck viewer =================
+function parseSlidesForDeck(markdown) {
+  return markdownToSlides(markdown);
+}
+
+function openDeck(msg) {
+  const slides = parseSlidesForDeck(msg.content);
+  if (slides.length === 0) return;
+  const deck = $('deck');
+  deckState = { msg, slides, index: 0 };
+  // limpa slides antigos (exceto a barra)
+  deck.querySelectorAll('.slide').forEach(x => x.remove());
+  for (const s of slides) {
+    const div = document.createElement('div');
+    div.className = 'slide';
+    const chunks = s.body.split(/\n{2,}/).filter(Boolean);
+    let inner = `<h2>${esc(s.title)}</h2>`;
+    for (const p of chunks) {
+      if (p.trim().startsWith('```')) inner += `<div class="slide-code">${esc(p.replace(/```\w*\n?/g, '').replace(/```\s*$/, '').trimEnd())}</div>`;
+      else inner += renderMd(p);
+    }
+    div.innerHTML = inner;
+    deck.appendChild(div);
+  }
+  showDeckSlide(0);
+  deck.classList.add('open');
+}
+
+function showDeckSlide(i) {
+  const slides = $('deck').querySelectorAll('.slide');
+  deckState.index = Math.min(Math.max(i, 0), slides.length - 1);
+  slides.forEach((x, n) => x.classList.toggle('active', n === deckState.index));
+  $('deckCount').textContent = `${deckState.index + 1} / ${slides.length}`;
+}
+function deckNav(d) { if (deckState) showDeckSlide(deckState.index + d); }
+
+// ================= Projects manager =================
+function openProjManager() {
+  $('projOverlay').classList.add('open');
+  renderProjManager();
+}
+
+function renderProjManager() {
+  const list = $('projManageList');
+  list.innerHTML = '';
+  if (projects.length === 0) {
+    list.innerHTML = '<div class="pc-note">Nenhum projeto ainda — crie o primeiro abaixo.</div>';
+  }
+  for (const p of projects) {
+    const row = document.createElement('div');
+    row.className = 'user-row';
+    row.innerHTML = `
+      <span class="dot" style="width:14px;height:14px;border-radius:50%;background:${esc(p.color)}"></span>
+      <input type="text" value="${esc(p.name)}" data-pid="${esc(p.id)}" maxlength="50">
+      <button class="btn ghost" data-pid="${esc(p.id)}" style="padding:4px 10px;font-size:11px">Salvar</button>
+      <button class="btn danger" data-pid="${esc(p.id)}">🗑</button>`;
+    const count = conversations.filter(c => c.projectId === p.id).length;
+    const hist = document.createElement('div');
+    hist.style.cssText = 'font-size:10px;color:var(--muted);margin:-4px 0 8px;padding-left:6px';
+    hist.textContent = `${count} conversa(s) neste projeto`;
+    list.appendChild(row);
+    list.appendChild(hist);
+    row.querySelector('.btn.ghost').onclick = async () => {
+      const name = row.querySelector('input').value.trim();
+      if (!name) return;
+      await apiProject('PUT', `/v1/projects/${p.id}`, { name });
+      loadUserStores();
+      setTimeout(openProjManagerRefresh, 400);
+    };
+    row.querySelector('.btn.danger').onclick = async () => {
+      if (!confirm(`Apagar o projeto "${p.name}"?\nAs conversas NÃO são apagadas — ficam "Sem projeto".`)) return;
+      await apiProject('DELETE', `/v1/projects/${p.id}`, {});
+      if (activeProjId === p.id) activeProjId = 'all';
+      loadUserStores();
+      setTimeout(openProjManagerRefresh, 400);
+    };
+  }
+}
+
+function openProjManagerRefresh() {
+  if ($('projOverlay').classList.contains('open')) renderProjManager();
+}
+
+async function addProject() {
+  const name = $('projName').value.trim();
+  if (!name) return;
+  const r = await apiProject('POST', '/v1/projects', { name });
+  if (r.ok) {
+    $('projName').value = '';
+    loadUserStores();
+    setTimeout(openProjManagerRefresh, 400);
+  } else toast('❌ ' + (r.error || 'erro'));
+}
+
+async function apiProject(method, url, body) {
+  if (isServerUser()) {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'userId=' + encodeURIComponent(me.id), {
+      method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!r.ok) return { ok: false, error: j.error?.message };
+    return { ok: true, data: j };
+  }
+  // convidado: projetos locais
+  if (method === 'POST') {
+    addProjectLocal(body);
+    return { ok: true };
+  }
+  const id = url.split('/').pop();
+  if (method === 'PUT') {
+    const p = projects.find(x => x.id === id);
+    if (p && body.name) p.name = body.name;
+    persistProjects();
+    return { ok: true };
+  }
+  if (method === 'DELETE') {
+    projects = projects.filter(x => x.id !== id);
+    persistProjects();
+    return { ok: true };
+  }
+  return { ok: true };
+}
+
+function addProjectLocal({ name }) {
+  const palette = ['#8a7ffc', '#3fb950', '#f78166', '#4cc9f0', '#f72585', '#ffd166', '#06d6a0', '#b388ff'];
+  projects.push({ id: 'p' + Date.now().toString(36), name: name.trim().slice(0, 50), color: palette[projects.length % palette.length], createdAt: new Date().toISOString() });
+  persistProjects();
 }
 
 // ================= Models / status =================
@@ -652,13 +1176,11 @@ function renderUsersTab() {
       <button class="btn ghost" data-uid="${esc(u.id)}" style="padding:4px 8px;font-size:11px">Salvar</button>
       <button class="btn danger" data-uid="${esc(u.id)}">🗑</button>`;
     list.appendChild(row);
-    // click avatar -> pick file
     row.querySelector('span').onclick = () => row.querySelector('.ur-file').click();
     row.querySelector('.ur-file').onchange = e => {
       const f = e.target.files[0];
       if (f) resizeImage(f, dataUrl => {
         const holder = row.querySelector('span');
-        holder.style.cursor = 'pointer';
         holder.innerHTML = `<img class="avatar" src="${dataUrl}" style="width:40px;height:40px" alt="">`;
         row.dataset.pendingAvatar = dataUrl;
       });
@@ -678,7 +1200,6 @@ function renderUsersTab() {
       if (j.ok) { if (me?.id === u.id) { me = null; localStorage.removeItem(ME_KEY); } loadUsers(); openSettings(); }
     };
   }
-  // add new
   let pendingAvatar = '';
   body.querySelector('#nuAvatar').onchange = e => {
     const f = e.target.files[0];
@@ -733,7 +1254,7 @@ async function saveSettings() {
     let val = inp.value.trim();
     if (val === original) return;
     changed++;
-    payload[key] = val; // empty string = limpar / desativar
+    payload[key] = val;
   });
   if (changed === 0) { showConfigMsg('Nada alterado.', true); return; }
   btn.disabled = true;
@@ -767,22 +1288,88 @@ $('settingsBtn').onclick = openSettings;
 $('settingsClose').onclick = () => $('settingsOverlay').classList.remove('open');
 $('settingsOverlay').addEventListener('click', e => { if (e.target === $('settingsOverlay')) $('settingsOverlay').classList.remove('open'); });
 $('configSave').onclick = saveSettings;
-$('newChat').onclick = () => { activeId = null; renderChat(); renderConvList(); $('sidebar').classList.remove('open'); $('input').focus(); };
+$('newChat').onclick = () => { activeId = null; renderChat(); renderConvList(); renderProjSelect(); $('sidebar').classList.remove('open'); $('input').focus(); };
 $('menuBtn').onclick = () => $('sidebar').classList.toggle('open');
 $('tabApis').onclick = () => { if (settingsTab === 'apis') return; settingsTab = 'apis'; $('tabApis').classList.add('active'); $('tabUsers').classList.remove('active'); $('configSave').style.display = ''; renderSettings(); };
 $('tabUsers').onclick = () => { if (settingsTab === 'users') return; settingsTab = 'users'; $('tabUsers').classList.add('active'); $('tabApis').classList.remove('active'); $('configSave').style.display = 'none'; renderSettings(); };
+$('projSelect').onchange = changeProjSelect;
+$('projClose').onclick = () => $('projOverlay').classList.remove('open');
+$('projOverlay').addEventListener('click', e => { if (e.target === $('projOverlay')) $('projOverlay').classList.remove('open'); });
+$('projAdd').onclick = addProject;
+$('projName').addEventListener('keydown', e => { if (e.key === 'Enter') addProject(); });
+$('btnImage').onclick = openImageModal;
+$('imageClose').onclick = () => $('imageOverlay').classList.remove('open');
+$('imgGenerate').onclick = runImage;
+$('btnDocument').onclick = () => { setMode(mode === 'document' ? null : 'document'); };
+$('btnPresentation').onclick = () => { setMode(mode === 'presentation' ? null : 'presentation'); };
+$('modeOff').onclick = () => setMode(null);
+document.querySelectorAll('.welcome .tool-hint').forEach(el => {
+  el.onclick = () => {
+    const t = el.dataset.open;
+    if (t === 'image') openImageModal();
+    else setMode(t);
+    $('input').focus();
+  };
+});
+$('deckPrev').onclick = () => deckNav(-1);
+$('deckNext').onclick = () => deckNav(1);
+$('deckClose').onclick = () => { $('deck').classList.remove('open'); deckState = null; };
+
 document.addEventListener('click', e => {
   const cb = e.target.closest('.cb-copy');
   if (cb) { navigator.clipboard.writeText(cb.dataset.code); toast('Código copiado!'); }
-  const cp = e.target.closest('.copy-btn');
-  if (cp) { navigator.clipboard.writeText(cp.dataset.text); toast('Resposta copiada!'); }
+
+  const act = e.target.closest('[data-act]');
+  if (act) {
+    const a = act.dataset.act;
+    const msgBody = act.closest('.body');
+    if (!msgBody) return;
+    const mid = msgBody.querySelector('.actions')?.dataset.midActions;
+    const conv = getActive();
+    const m = conv?.messages.find(x => x.id === mid);
+    if (!m) return;
+    const title = act.dataset.title || 'documento';
+    if (a === 'doc-word') { download(title + '.doc', buildDocHTML(m.content, title), 'application/msword'); toast('Documento baixado (.doc)'); }
+    else if (a === 'doc-html') { download(title + '.html', buildDocHTML(m.content, title), 'text/html'); toast('HTML baixado'); }
+    else if (a === 'doc-md') { download(title + '.md', m.content, 'text/markdown'); toast('.md baixado'); }
+    else if (a === 'doc-print') { window.open('about:blank').document.write(buildDocHTML(m.content, title) + '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>'); }
+    else if (a === 'doc-deck') { download(title + '.html', fullDeckFile(title, m.content), 'text/html'); toast('Apresentação baixada'); }
+    else if (a === 'pres-play') { openDeck(m); }
+    else if (a === 'img-download') {
+      const aEl = document.createElement('a');
+      aEl.href = m.image.url;
+      aEl.download = 'imagem_' + (m.image.prompt || 'ia').slice(0, 24).replace(/[^\w]+/g, '_') + (m.image.url.endsWith('.png') ? '.png' : '.jpg');
+      aEl.target = '_blank';
+      aEl.click();
+      return;
+    }
+    else if (a === 'img-regen') {
+      const p = m.image;
+      $('imgPrompt').value = p.prompt;
+      $('imgSize').value = `${p.width}x${p.height}`;
+      openImageModal();
+      toast('Mesma descrição — clique em Gerar');
+    }
+    return;
+  }
+
+  const cp = e.target.closest('.copy-btn[data-text]');
+  if (cp) { navigator.clipboard.writeText(cp.dataset.text); toast('Copiado!'); }
 });
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (($('deck').classList.contains('open'))) { $('deck').classList.remove('open'); deckState = null; return; }
+    if ($('imageOverlay').classList.contains('open')) { $('imageOverlay').classList.remove('open'); return; }
+    if ($('projOverlay').classList.contains('open')) { $('projOverlay').classList.remove('open'); return; }
     $('settingsOverlay').classList.remove('open');
-    if (generating && me) { /* keep chat */ }
+  }
+  if ($('deck').classList.contains('open')) {
+    if (e.key === 'ArrowRight') deckNav(1);
+    if (e.key === 'ArrowLeft') deckNav(-1);
   }
 });
+
 let toastTimer;
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1800); }
 
@@ -791,7 +1378,7 @@ renderUserChip();
 loadModels();
 refreshStatus();
 setInterval(refreshStatus, 15000);
-loadUsers().then(() => { if (me) renderConvList(); });
+loadUsers().then(() => { if (me) { renderProjRow(); renderConvList(); } });
 </script>
 </body>
 </html>

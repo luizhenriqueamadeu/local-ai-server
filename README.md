@@ -9,6 +9,8 @@ Um servidor de IA local que roda na sua rede interna, gerencia múltiplos proved
 - **Preservação de Contexto**: Mantém histórico e resumo da conversa ao trocar modelos
 - **Chat pelo navegador**: interface web pronta, servida pelo próprio servidor
 - **Usuários com avatar** (ideal para empresas): conversas separadas por pessoa/setor, salvas no servidor
+- **Projetos**: agrupe conversas por setor/cliente/assunto (por usuário, salvos no servidor)
+- **Criação com IA**: 🖼️ imagens (grátis, sem chave), 📄 documentos (.doc/.html/.md + PDF) e 📊 apresentações de slides
 - **Painel de configuração na web**: adicione/remova APIs e chaves sem editar arquivo nenhum — ativa na hora
 - **API OpenAI Compatível**: Funciona com Continue, Cline, CodeGPT, Cursor, etc.
 - **Modelos Gratuitos Prioritários**: Usa modelos free tier primeiro
@@ -77,6 +79,29 @@ Perfeito para uso corporativo: cada pessoa entra no chat clicando no próprio av
 - As conversas ficam salvas na pasta `data/` do servidor (nunca sobe para o GitHub) — trocar de máquina não perde o histórico.
 - É possível ativar/remover/editar usuários e apagar as conversas de alguém a qualquer momento.
 - Modo **Convidado** disponível para acessos avulsos (neste caso as conversas ficam só no navegador, como antes).
+
+## 🛠️ Criação com IA (na barra ➕ do campo de mensagem)
+
+### 🖼️ Imagens
+- Geração de imagem **gratuita e sem API key** (Pollinations.ai)
+- Tamanhos: quadrado 1024×1024, paisagem 1280×720, retrato 720×1280
+- A imagem aparece na conversa, pode ser **baixada** e **regenerada** (nova variação)
+- Arquivos ficam em `data/images/` do servidor
+
+### 📄 Documentos
+1. Clique **📄 Documento**, escreva o tema e envie
+2. A IA escreve o documento completo em Markdown
+3. Nos botões abaixo da resposta: **⬇️ .doc (Word)**, ⬇️ .html, ⬇️ .md e 🖨 **Imprimir/PDF** (via impressão do navegador)
+
+### 📊 Apresentações
+1. Clique **📊 Apresentação**, escreva o tema e envie
+2. A IA retorna slide a slide
+3. Botões: **▶️ Apresentar** (tela cheia, navega com ← →, fecha com ESC), ⬇️ **deck .html** (apresentação autônoma que abre em qualquer navegador) e ⬇️ .md
+
+### 📁 Projetos
+- Chips na lateral: crie projetos ("Cliente X", "Financeiro"...) e filte conversas por eles
+- Nova conversa entra no projeto selecionado; para mover, use o seletor de projeto junto ao caixa de mensagem
+- Convidados também têm projetos (versão local no navegador)
 
 ## ⚡ Início Rápido (5 minutos)
 
@@ -365,7 +390,7 @@ local-ai-server/
 │   │   ├── providers.js       # Catálogo de modelos e provedores
 │   │   ├── freeProviders.js   # ✨ Lista pronta de provedores gratuitos (auto-ativação)
 │   │   ├── envManager.js      # ✨ Le/grava .env (painel de configuração web)
-│   │   └── userStore.js       # ✨ Usuários + conversas por usuário (pasta data/)
+│   │   └── userStore.js       # ✨ Usuários + conversas/projetos por usuário (pasta data/)
 │   ├── core/
 │   │   ├── ModelRotationManager.js  # Lógica de rotação
 │   │   └── ChatCompletionHandler.js # Orquestração de chat
