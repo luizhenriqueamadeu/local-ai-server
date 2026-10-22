@@ -81,6 +81,48 @@ Copy-Item $nodeExe "$Destination\node\node.exe" -Force
 # ---- data/ vazia ---------------------------------------------------------
 New-Item -ItemType Directory -Path "$Destination\app\data" -Force | Out-Null
 
+# ---- Ejetar_Pendrive.bat ---------------------------------------------------
+Write-Host "Criando Ejetar_Pendrive.bat..."
+
+$eject = @'
+@echo off
+chcp 65001 >nul
+title Eject pendrive (Local AI Server)
+echo ========================================
+echo   Removendo o pendrive com seguranca
+echo ========================================
+echo.
+
+REM ---- 1) Para o servidor iniciado por ESTE pendrive ----
+set "NODEEXE=%~dp0node\node.exe"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p='%NODEEXE%'; $n=0; Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $p } | ForEach-Object { try { Stop-Process -Id $_.Id -Force; $n++ } catch {} }; if ($n -gt 0) { Write-Host ('  Servidor parado (' + $n + ' processo).') } else { Write-Host '  Nenhum servidor rodando neste pendrive.' }"
+
+REM ---- 2) Bloco de notas do .env aberto tambem segura o pendrive ----
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \"Name='notepad.exe'\" | Where-Object { $_.CommandLine -like '*%~dp0app\.env*' } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }"
+
+timeout /t 2 /nobreak >nul
+
+REM ---- 3) Solta o volume (cd para fora do pendrive) ----
+cd /d C:\
+set "DRIVE=%~d0"
+
+REM ---- 4) Ejeta pela Shell API (sem admin) ----
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$sh = New-Object -ComObject Shell.Application; $item = $sh.NameSpace('%DRIVE%\').Self; $done = $false; foreach ($v in @($item.Verbs())) { if ($v.Name -match 'eject|ejetar') { Write-Host ('  Tentando: ' + $v.Name); $v.DoIt(); $done = $true; break } }; if (-not $done) { Write-Host '  Este dispositivo nao oferece ejecao automatica.' }"
+
+timeout /t 3 /nobreak >nul
+
+REM ---- 5) Confere se saiu de verdade ----
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Get-Volume -DriveLetter '%DRIVE%' -ErrorAction SilentlyContinue) { Write-Host '  AINDA MONTADO: algum programa segura o pendrive (ex: janela do Explorer, Defender, indexador) ou o dispositivo nao responde a ejecao.'; Write-Host '  -> Feche janelas/programas que usem o stick e use o icone Remover Hardware canto do relogio.'; Write-Host '  -> O servidor ja foi parado: seus dados em data\ ja estao fechados e gravados.' } else { Write-Host '  EJETADO com sucesso. Pode puxar o pendrive.' }"
+
+echo.
+echo ========================================
+echo   Servidor parado. Dados fechados e gravados.
+echo ========================================
+echo.
+pause
+'@
+$eject | Out-File -FilePath (Join-Path $Destination 'Ejetar_Pendrive.bat') -Encoding ascii
+
 # ---- Iniciar.bat ----------------------------------------------------------
 Write-Host "Criando Iniciar.bat e LEIA-ME..."
 
@@ -143,11 +185,20 @@ NAO PRECISA de Node.js, npm ou qualquer instalacao no PC hospedeiro:
 o node.exe vem embutido nesta pasta (pasta \node\).
 
 ARQUIVOS
-  Iniciar.bat      inicia o servidor (console com logs)
-  app\             codigo do servidor + node_modules + public (chat web)
-  app\data\        usuarios, conversas e imagens geradas (fica no pendrive!)
-  app\.env         configuracao (chaves de API) - fica no pendrive
-  node\node.exe    runtime Node.js embutido
+  Iniciar.bat         inicia o servidor (console com logs)
+  Ejetar_Pendrive.bat para o servidor e ejeta o pendrive com seguranca
+  app\                codigo do servidor + node_modules + public (chat web)
+  app\data\           usuarios, conversas e imagens geradas (fica no pendrive!)
+  app\.env            configuracao (chaves de API) - fica no pendrive
+  node\node.exe       runtime Node.js embutido
+
+CHAVES DE API PELO CHAT WEB
+  Plugue o pendrive, rode Iniciar.bat e abra http://localhost:3000/
+  no PC onde ele esta rodando. O painel (icone engrenagem) tem as
+  abas de APIs iguais as da versao desktop; as chaves sao salvas no
+  app\.env DO PENDRIVE (persistem entre usos e PCs).
+  Editar o painel de outro PC da rede e bloqueado por padrao
+  (ALLOW_REMOTE_CONFIG=false no app\.env).
 
 PORTA E REDE
   Padrao: 3000 (HOST=0.0.0.0, ou seja, visivel na rede local).
@@ -155,8 +206,9 @@ PORTA E REDE
   Para mudar porta/limites, edite app\.env (PORT=, HOST=, etc).
 
 REMOVER O PENDRIVE COM SEGURANCA
-  Feche a janela do servidor (CTRL+C ou X) ANTES de remover o pendrive,
-  senao as gravacoes em data\ podem corromper.
+  Rode Ejetar_Pendrive.bat OU feche a janela do servidor (CTRL+C ou X)
+  e use o icone "Remover hardware com seguranca" do canto do relogio.
+  Puxar direto pode corromper as gravacoes em data\.
 
 SEGURANCA (leia!)
   - O app\data\ carrega usuarios, conversas e imagens: quem pegar o
@@ -177,6 +229,5 @@ $readme | Out-File -FilePath (Join-Path $Destination 'LEIA-ME.txt') -Encoding as
 $size = (Get-ChildItem $Destination -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
 Write-Host ""
 Write-Host ("Pacote pronto: {0}  ({1:N1} MB)" -f $Destination, $size) -ForegroundColor Green
-Write-Host "  node\     : runtime embutido"
-Write-Host "  app\      : servidor + chat web"
-Write-Host "  Iniciar.bat: duplo-clique e pronto"
+Write-Host "  Iniciar.bat : duplo-clique e pronto"
+Write-Host "  Ejetar_Pendrive.bat : para o servidor e ejeta o pendrive"
