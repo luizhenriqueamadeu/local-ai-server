@@ -1,0 +1,182 @@
+# ============================================================
+#  Local AI Server - Gerador de PACOTE PORTATIL (pendrive)
+# ============================================================
+# Junta o codigo do servidor + node.exe do Node em uma pasta
+# que roda em QUALQUER Windows sem instalar nada:
+#
+#   powershell -ExecutionPolicy Bypass -File scripts\build_portable.ps1
+#   powershell -ExecutionPolicy Bypass -File scripts\build_portable.ps1 -Destination D:\TestStick -IncludeEnv
+#
+# Parametros:
+#   -Destination : onde criar o pacote (default: <projeto>\portable\LocalAIServer-Portable)
+#   -IncludeEnv  : copia o .env real (SUA chave de API vai no pendrive - use por sua conta)
+# ============================================================
+
+param(
+    [string]$Destination = "",
+    [switch]$IncludeEnv
+)
+
+$ErrorActionPreference = 'Stop'
+
+$ProjectRoot = Split-Path -Parent $PSScriptRoot   # D:\LOCALIA
+if (-not $Destination -or $Destination.Trim() -eq '') {
+    $Destination = Join-Path $ProjectRoot 'portable\LocalAIServer-Portable'
+}
+
+# ---- localizar node.exe -------------------------------------------------
+$nodeCandidates = @(
+    'C:\Program Files\nodejs\node.exe',
+    'C:\Program Files (x86)\nodejs\node.exe',
+    "$env:LOCALAPPDATA\Programs\nodejs\node.exe"
+)
+$nodeExe = $nodeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $nodeExe) {
+    Write-Host "ERRO: node.exe nao encontrado ($($nodeCandidates -join ', '))" -ForegroundColor Red
+    exit 1
+}
+$nodeVersion = (& $nodeExe --version)
+
+Write-Host "Node     : $nodeVersion  ($nodeExe)"
+Write-Host "Origem   : $ProjectRoot"
+Write-Host "Destino  : $Destination"
+Write-Host ""
+
+# ---- limpar destino ----------------------------------------------------
+if (Test-Path $Destination) {
+    Write-Host "Removendo pacote anterior..."
+    Remove-Item $Destination -Recurse -Force
+}
+
+# ---- copiar app ---------------------------------------------------------
+New-Item -ItemType Directory -Path "$Destination\app" -Force | Out-Null
+Write-Host "Copiando codigo..."
+
+$copyDirs = @('src', 'public', 'node_modules', 'docs')
+foreach ($d in $copyDirs) {
+    if (Test-Path (Join-Path $ProjectRoot $d)) {
+        robocopy (Join-Path $ProjectRoot $d) (Join-Path $Destination "app\$d") /E /NFL /NDL /NJH /NDL /NP | Out-Null
+    }
+}
+
+$copyFiles = @('package.json', '.env.example', 'README.md', 'LICENSE')
+foreach ($f in $copyFiles) {
+    if (Test-Path (Join-Path $ProjectRoot $f)) {
+        Copy-Item (Join-Path $ProjectRoot $f) (Join-Path $Destination "app\$f") -Force
+    }
+}
+
+if ($IncludeEnv -and (Test-Path (Join-Path $ProjectRoot '.env'))) {
+    Copy-Item (Join-Path $ProjectRoot '.env') (Join-Path $Destination 'app\.env') -Force
+    Write-Host "AVISO: .env REAL copiado (chaves de API no pendrive!)" -ForegroundColor Yellow
+} else {
+    Write-Host ".env NAO copiado (seguro). Configure no painel do primeiro boot."
+}
+
+# ---- node.exe embutido ---------------------------------------------------
+New-Item -ItemType Directory -Path "$Destination\node" -Force | Out-Null
+Write-Host "Copiando node.exe ($nodeVersion)..."
+Copy-Item $nodeExe "$Destination\node\node.exe" -Force
+
+# ---- data/ vazia ---------------------------------------------------------
+New-Item -ItemType Directory -Path "$Destination\app\data" -Force | Out-Null
+
+# ---- Iniciar.bat ----------------------------------------------------------
+Write-Host "Criando Iniciar.bat e LEIA-ME..."
+
+$bat = @'
+@echo off
+chcp 65001 >nul
+title Local AI Server (Portatil)
+cd /d "%~dp0app"
+
+echo ========================================
+echo   LOCAL AI SERVER - Versao PORTATIL
+echo ========================================
+echo Node: %~dp0node\node.exe
+echo.
+
+if not exist "data" mkdir "data"
+
+if not exist ".env" (
+    echo Primeira execucao: criando .env a partir do .env.example
+    copy ".env.example" ".env" >nul
+    echo.
+    echo ------------------------------------------------------------
+    echo  Sem chaves de API ainda! Duas opcoes:
+    echo   1^) Edite o .env agora ^(vai abrir no Bloco de Notas^)
+    echo   2^) Ou apenas feche o Bloco de Notas e configure depois pelo
+    echo      painel do chat ^(icone engrenagem - somente localhost^)
+    echo ------------------------------------------------------------
+    notepad .env
+)
+
+echo Iniciando servidor...
+echo.
+echo   Chat web  : http://localhost:3000/
+echo   Chat rede : use o IP desta maquina, ex.: http://192.168.x.x:3000/
+echo   Health    : http://localhost:3000/health
+echo.
+echo CTRL+C para parar
+echo ========================================
+echo.
+
+"..\node\node.exe" src\index.js
+
+echo.
+echo Servidor parado.
+pause
+'@
+$bat | Out-File -FilePath (Join-Path $Destination 'Iniciar.bat') -Encoding ascii
+
+# ---- LEIA-ME --------------------------------------------------------------
+$readme = @'
+LOCAL AI SERVER - VERSAO PORTATIL (pendrive)
+=============================================
+
+COMO USAR
+  1. Cole esta pasta inteira em um pendrive (ou qualquer pasta de PC).
+  2. Rode:  Iniciar.bat
+  3. Abra o navegador em http://localhost:3000/
+
+NAO PRECISA de Node.js, npm ou qualquer instalacao no PC hospedeiro:
+o node.exe vem embutido nesta pasta (pasta \node\).
+
+ARQUIVOS
+  Iniciar.bat      inicia o servidor (console com logs)
+  app\             codigo do servidor + node_modules + public (chat web)
+  app\data\        usuarios, conversas e imagens geradas (fica no pendrive!)
+  app\.env         configuracao (chaves de API) - fica no pendrive
+  node\node.exe    runtime Node.js embutido
+
+PORTA E REDE
+  Padrao: 3000 (HOST=0.0.0.0, ou seja, visivel na rede local).
+  Outro PC da rede acessa em http://IP-desta-maquina:3000/
+  Para mudar porta/limites, edite app\.env (PORT=, HOST=, etc).
+
+REMOVER O PENDRIVE COM SEGURANCA
+  Feche a janela do servidor (CTRL+C ou X) ANTES de remover o pendrive,
+  senao as gravacoes em data\ podem corromper.
+
+SEGURANCA (leia!)
+  - O app\data\ carrega usuarios, conversas e imagens: quem pegar o
+    pendrive acessa tudo. Trate o pendrive como item pessoal.
+  - As chaves de API ficam no app\.env do pendrive. O painel do
+    servidor so pode editar chaves via localhost da maquina onde roda.
+  - Recomendado: pendrive com criptografia (BitLocker To Go) se for
+    levar para fora de casa.
+
+ATUALIZAR O SERVIDOR NO PENDRIVE
+  Baixe/clone o repo, rode scripts\build_portable.ps1 novamente e
+  substitua esta pasta - OU apague app\ e copie o novo app\ (data\
+  e .env do pendrive podem ser mantidos).
+'@
+$readme | Out-File -FilePath (Join-Path $Destination 'LEIA-ME.txt') -Encoding ascii
+
+# ---- tamanho final ---------------------------------------------------------
+$size = (Get-ChildItem $Destination -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
+Write-Host ""
+Write-Host ("Pacote pronto: {0}  ({1:N1} MB)" -f $Destination, $size) -ForegroundColor Green
+Write-Host "  node\     : runtime embutido"
+Write-Host "  app\      : servidor + chat web"
+Write-Host "  Iniciar.bat: duplo-clique e pronto"

@@ -25,6 +25,32 @@ Um servidor de IA local que roda na sua rede interna, gerencia múltiplos proved
   - [OpenRouter](https://openrouter.ai/keys) - para acesso a 100+ modelos
   - [NVIDIA](https://build.nvidia.com/) - para Nemotron e modelos NVIDIA
 
+## 💾 Versão Portátil (pendrive)
+
+Não quer instalar Node.js? Gere um pacote que roda em **qualquer Windows com duplo clique**:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_portable.ps1
+```
+
+Isso cria `portable\LocalAIServer-Portable\` (~95 MB, já inclui o `node.exe`):
+
+```
+LocalAIServer-Portable\
+├─ Iniciar.bat        ← duplo-clique e pronto
+├─ app\               código do servidor + chat web
+├─ app\data\          usuários, conversas e imagens (ficam no pendrive!)
+├─ app\.env           chaves de API (do pendrive, não do PC)
+└─ node\node.exe      runtime embutido — PC alvo não precisa de nada
+```
+
+- **Zero instalação** no PC hospedeiro: cole a pasta no pendrive e execute `Iniciar.bat`
+- Primeiro boot sem chaves? Configure pelo painel ⚙️ do chat (localhost) ou edite `app\.env`
+- Use `-IncludeEnv` no script se quiser copiar seu `.env` atual (⚠️ a chave vai junto)
+- ⚠️ Segurança: `app\data\` (conversas/usuários) e `app\.env` (chaves) viajam no pendrive —
+  remova o pendrive só depois de fechar o servidor (CTRL+C) e prefira BitLocker To Go
+- Opções: `powershell -File scripts\build_portable.ps1 -Destination D:\MeuStick -IncludeEnv`
+
 ## 🛠 Instalação
 
 ```bash
