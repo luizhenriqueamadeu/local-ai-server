@@ -35,6 +35,10 @@ powershell -ExecutionPolicy Bypass -File scripts\build_portable.ps1
 
 Isso cria `portable\LocalAIServer-Portable\` (~95 MB, já inclui o `node.exe`):
 
+> **No PC sem Node** (ou preguiça de gerar): baixe o arquivo pronto em
+> [Releases](https://github.com/luizhenriqueamadeu/local-ai-server/releases/latest) →
+> `LocalAIServer-portable-v1.0.0.zip` (35 MB comprimido) → extraia → `Iniciar.bat`.
+
 ```
 LocalAIServer-Portable\
 ├─ Iniciar.bat        ← duplo-clique e pronto
