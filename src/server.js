@@ -273,8 +273,8 @@ for (const tpl of FREE_PROVIDER_TEMPLATES) {
 }
 
 const STATIC_PROVIDERS = [
-  { id: 'openrouter', name: 'OpenRouter', fields: ['OPENROUTER_API_KEY', 'OPENROUTER_BASE_URL', 'OPENROUTER_REFERER', 'OPENROUTER_TITLE'] },
-  { id: 'nvidia', name: 'NVIDIA NIM', fields: ['NVIDIA_API_KEY', 'NVIDIA_BASE_URL'] },
+  { id: 'openrouter', name: 'OpenRouter', signup: 'https://openrouter.ai/keys', note: 'Acesso a 100+ modelos gratuitos (Llama, Nemotron, DeepSeek...). "HTTP-Referer" e "X-Title" atribuem uso ao seu app no dashboard.', fields: ['OPENROUTER_API_KEY', 'OPENROUTER_BASE_URL', 'OPENROUTER_REFERER', 'OPENROUTER_TITLE'] },
+  { id: 'nvidia', name: 'NVIDIA NIM', signup: 'https://build.nvidia.com/', note: 'Catálogo NVIDIA: entre com conta NVIDIA, procure o modelo e use "Setup" para gerar a chave (nvapi-...).', fields: ['NVIDIA_API_KEY', 'NVIDIA_BASE_URL'] },
 ];
 
 function buildConfigStatus() {
@@ -284,6 +284,7 @@ function buildConfigStatus() {
   for (const sp of STATIC_PROVIDERS) {
     entries.push({
       id: sp.id, name: sp.name, active: active.includes(sp.id),
+      signup: sp.signup, note: sp.note,
       fields: sp.fields.map(k => ({
         key: k, value: process.env[k] || '', masked: maskSecret(process.env[k]),
       })),
