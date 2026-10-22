@@ -173,7 +173,7 @@ $bat | Out-File -FilePath (Join-Path $Destination 'Iniciar.bat') -Encoding ascii
 
 # ---- LEIA-ME --------------------------------------------------------------
 $readme = @'
-LOCAL AI SERVER - VERSAO PORTATIL (pendrive)
+LOCAL AI SERVER - VERSAO PORTATIL v1.2.0 (pendrive)
 =============================================
 
 COMO USAR
