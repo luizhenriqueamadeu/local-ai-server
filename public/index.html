@@ -56,13 +56,16 @@
   /* ---- Chat area ---- */
   .chat { flex: 1; overflow-y: auto; padding: 24px 16px; }
   .chat-inner { max-width: 780px; margin: 0 auto; }
-  .welcome { text-align: center; margin-top: 14vh; color: var(--muted); }
-  .welcome .big { font-size: 44px; margin-bottom: 12px; }
-  .welcome h2 { color: var(--text); margin-bottom: 8px; font-weight: 500; }
+  .welcome { text-align: center; margin-top: 9vh; color: var(--muted); }
+  .welcome .big { font-size: 46px; margin-bottom: 12px; }
+  .welcome h2 { font-size: 30px; font-weight: 600; margin-bottom: 8px; background: linear-gradient(135deg, var(--text) 30%, var(--accent2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .welcome p { font-size: 14px; }
-  .welcome .tools { display: flex; gap: 10px; justify-content: center; margin-top: 22px; flex-wrap: wrap; }
-  .welcome .tool-hint { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-size: 12px; cursor: pointer; }
-  .welcome .tool-hint:hover { border-color: var(--accent); color: var(--text); }
+  .welcome .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 30px auto 0; max-width: 700px; text-align: left; }
+  .tile { background: var(--bg3); border: 1px solid var(--border); border-radius: 16px; padding: 16px; cursor: pointer; transition: all .18s; }
+  .tile:hover { border-color: var(--accent); background: var(--bg2); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  .tile .t-ico { font-size: 22px; margin-bottom: 10px; }
+  .tile .t-title { color: var(--text); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .tile .t-desc { font-size: 12px; color: var(--muted); line-height: 1.45; }
   .msg { margin-bottom: 18px; display: flex; gap: 12px; }
   .msg .avatar, .msg .avatar-letter { width: 30px; height: 30px; font-size: 14px; }
   .msg.user .avatar { background: #343b4d; }
@@ -97,14 +100,16 @@
   .mode-bar.show { display: flex; }
   .mode-bar .pattern { background: rgba(138,127,252,.15); border: 1px solid var(--accent); border-radius: 999px; padding: 4px 12px; }
   .mode-bar button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
-  .tools-row { display: flex; gap: 6px; margin-bottom: 6px; }
-  .tool-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; font-size: 12px; padding: 5px 11px; cursor: pointer; }
-  .tool-btn:hover { color: var(--text); border-color: var(--accent); }
-  .proj-select { margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; font-size: 11px; padding: 5px 8px; max-width: 190px; cursor: pointer; }
-  .input-wrap { display: flex; align-items: flex-end; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 14px; padding: 8px 10px; }
-  .input-wrap:focus-within { border-color: var(--accent); }
+  .tools-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .tool-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; font-size: 12px; padding: 6px 14px; cursor: pointer; transition: all .15s; }
+  .tool-btn:hover { color: var(--text); border-color: var(--accent); background: rgba(138,127,252,.08); }
+  .tool-btn.active { color: #fff; background: linear-gradient(135deg, var(--accent), #7a6ef6); border-color: transparent; }
+  .proj-select { margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 10px; max-width: 190px; cursor: pointer; }
+  .input-wrap { display: flex; align-items: flex-end; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 18px; padding: 10px 12px; box-shadow: 0 4px 24px rgba(0,0,0,.25); }
+  .input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 4px 30px rgba(138,127,252,.15); }
   #input { flex: 1; background: none; border: none; outline: none; color: var(--text); font: inherit; resize: none; max-height: 140px; line-height: 1.5; }
-  .send-btn, .stop-btn { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 8px 14px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+  .send-btn, .stop-btn { background: linear-gradient(135deg, var(--accent), #7a6ef6); color: #fff; border: none; border-radius: 12px; padding: 9px 15px; cursor: pointer; font-size: 14px; flex-shrink: 0; transition: filter .15s; }
+  .send-btn:hover, .stop-btn:hover { filter: brightness(1.1); }
   .send-btn:disabled { opacity: .4; cursor: default; }
   .stop-btn { background: var(--red); }
   .composer-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 6px; }
@@ -211,12 +216,15 @@
       <div class="chat-inner">
         <div class="welcome" id="welcome">
           <div class="big">✨</div>
-          <h2>Bem-vindo ao seu servidor de IA</h2>
-          <p>A rotação automática escolhe o melhor modelo <b>free</b> disponível.<br>Use a barra ➕ para criar imagens, documentos e apresentações.</p>
-          <div class="tools">
-            <span class="tool-hint" data-open="image">🖼️ Criar imagem</span>
-            <span class="tool-hint" data-open="document">📄 Criar documento</span>
-            <span class="tool-hint" data-open="presentation">📊 Criar apresentação</span>
+          <h2>Olá! Como posso ajudar hoje?</h2>
+          <p>Escolha uma ferramenta abaixo ou digite direto — rotação automática escolhe o melhor modelo <b>free</b>.</p>
+          <div class="tiles">
+            <div class="tile" data-tile="image"><div class="t-ico">🖼️</div><div class="t-title">Imagem</div><div class="t-desc">Logos, ilustrações e fotos com IA gratuita</div></div>
+            <div class="tile" data-tile="video"><div class="t-ico">🎬</div><div class="t-title">Vídeo</div><div class="t-desc">Roteiro + prompts prontos para geradores de vídeo</div></div>
+            <div class="tile" data-tile="code"><div class="t-ico">💻</div><div class="t-title">Código</div><div class="t-desc">Programas completos, com arquivo para baixar</div></div>
+            <div class="tile" data-tile="document"><div class="t-ico">📄</div><div class="t-title">Documento</div><div class="t-desc">Relatórios .doc, HTML e PDF prontos</div></div>
+            <div class="tile" data-tile="presentation"><div class="t-ico">📊</div><div class="t-title">Apresentação</div><div class="t-desc">Slides com player para apresentar</div></div>
+            <div class="tile" data-tile="chat"><div class="t-ico">💬</div><div class="t-title">Chat livre</div><div class="t-desc">Converse, tire dúvidas, peça ideias</div></div>
           </div>
         </div>
       </div>
@@ -230,9 +238,12 @@
           <span style="color:var(--muted)">escreva o tema e envie</span>
         </div>
         <div class="tools-row">
-          <button class="tool-btn" id="btnImage" title="Criar imagem com IA">🖼️ Imagem</button>
-          <button class="tool-btn" id="btnDocument" title="Criar documento (.doc, .html, imprime)">📄 Documento</button>
-          <button class="tool-btn" id="btnPresentation" title="Criar apresentação de slides">📊 Apresentação</button>
+          <button class="tool-btn" data-mode="chat" title="Conversa livre">💬 Chat</button>
+          <button class="tool-btn" data-mode="image" title="Criar imagem com IA">🖼️ Imagem</button>
+          <button class="tool-btn" data-mode="video" title="Roteiro de vídeo + prompts para geradores">🎬 Vídeo</button>
+          <button class="tool-btn" data-mode="document" title="Criar documento (.doc, .html, imprime)">📄 Documento</button>
+          <button class="tool-btn" data-mode="presentation" title="Criar apresentação de slides">📊 Apresentação</button>
+          <button class="tool-btn" data-mode="code" title="Programar com código pronto">💻 Código</button>
           <select class="proj-select" id="projSelect" title="Projeto (nova conversa entra neste projeto)"></select>
         </div>
         <div class="input-wrap">
@@ -390,8 +401,8 @@ function fmtMd(text) {
   if (!h.trim()) return '';
   const lines = h.split('\n');
   let out = '', inList = false;
+  const codes = [];
   for (let line of lines) {
-    const codes = [];
     line = line.replace(/`([^`\n]+)`/g, (_, c) => {
       codes.push(`<code class="inline">${c}</code>`);
       return `\u0000${codes.length - 1}\u0000`;
@@ -760,6 +771,15 @@ function msgActionsHTML(m) {
       html += `<button class="copy-btn" data-act="pres-play" style="background:var(--accent);color:#fff;border-color:var(--accent)">▶️ Apresentar</button>`;
       html += `<button class="copy-btn" data-act="doc-deck" data-title="${esc(t)}">⬇️ deck .html</button>`;
       html += `<button class="copy-btn" data-act="doc-md" data-title="${esc(t)}">⬇️ .md</button>`;
+    } else if (m.kind === 'code' && m.content) {
+      const lang = (m.content.match(/```[\w+#-]*/) || [''])[0].slice(3) || 'txt';
+      const name = ((m.topic || docTitle(m.content)).replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'codigo');
+      html += `<button class="copy-btn" data-act="code-download" data-title="${esc(name)}" data-ext="${esc(extForCodeLang(lang))}" style="background:var(--accent);color:#fff;border-color:var(--accent)">⬇️ baixar código</button>`;
+      html += `<button class="copy-btn" data-text="${esc(m.content)}">copiar resposta</button>`;
+    } else if (m.kind === 'video' && m.content) {
+      const t = (m.topic || docTitle(m.content)).slice(0, 40);
+      html += `<button class="copy-btn" data-act="doc-md" data-title="${esc(t)}">⬇️ roteiro .md</button>`;
+      html += `<button class="copy-btn" data-text="${esc(m.content)}">copiar roteiro</button>`;
     } else if (m.role === 'assistant' && m.content) {
       html += `<button class="copy-btn" data-text="${esc(m.content)}">copiar resposta</button>`;
     }
@@ -772,13 +792,19 @@ function docTitle(md) {
   return (first ? first.replace(/^#\s*/, '') : 'documento').slice(0, 40).trim();
 }
 
+const CODE_EXT = { javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', python: 'py', py: 'py', html: 'html', css: 'css', json: 'json', bash: 'sh', sh: 'sh', shell: 'sh', powershell: 'ps1', ps1: 'ps1', c: 'c', cpp: 'cpp', java: 'java', cs: 'cs', csharp: 'cs', php: 'php', ruby: 'rb', go: 'go', rust: 'rs', sql: 'sql', markdown: 'md', md: 'md', xml: 'xml', yaml: 'yml', text: 'txt', txt: 'txt' };
+function extForCodeLang(lang) {
+  const l = String(lang).toLowerCase();
+  return CODE_EXT[l] || (l && l.length <= 4 ? l : 'txt') || 'txt';
+}
+
 function renderMsg(m, conv) {
   const div = document.createElement('div');
   div.className = 'msg ' + m.role;
   div.dataset.mid = m.id;
   const meOut = m.role === 'user' ? me : null;
   const owner = m.role === 'user' ? (meOut ? meOut.name : 'Você') : (m.model || 'Assistente');
-  const kindLabel = m.kind === 'document' ? '📄 documento' : m.kind === 'presentation' ? '📊 apresentação' : m.kind === 'image' ? '🖼️ imagem' : '';
+  const kindLabel = m.kind === 'document' ? '📄 documento' : m.kind === 'presentation' ? '📊 apresentação' : m.kind === 'image' ? '🖼️ imagem' : m.kind === 'video' ? '🎬 vídeo' : m.kind === 'code' ? '💻 código' : '';
   let contentHTML = '';
   if (m.kind === 'image' && m.image) {
     contentHTML = `<div class="img-wrap"><img src="${m.image.url}" alt="" loading="lazy"></div>`;
@@ -812,6 +838,19 @@ Estrutura: título principal (#), resumo executivo curto, seções bem organizad
 const PRES_PROMPT = t => `Crie uma APRESENTAÇÃO de slides sobre: "${t}".
 FORMATO OBRIGATÓRIO: um slide por bloco, cada slide começa com "## Título do Slide" seguido de 3-6 bullets curtos ("-" e "•") — sem parágrafos longos.
 Inclua de 7 a 10 slides: título (+# Subtítulo/autor), agenda, conteúdo principal, conclusão e encerramento. Português.`;
+const VIDEO_PROMPT = t => `Crie um ROTEIRO DE VÍDEO profissional sobre: "${t}".
+Responda SOMENTE com o roteiro em Markdown (sem preâmbulo). Estrutura OBRIGATÓRIA:
+1. # Título do vídeo + uma linha de descrição/gancho.
+2. ## Storyboard — tabela com colunas CENA | DURAÇÃO | IMAGEM/AÇÃO | NARRAÇÃO/TEXTO, com 8 a 12 cenas.
+3. ## Prompts de geração — um bloco de código por ato (início, meio, fim), cada um com prompt em INGLÊS pronto para colar em geradores de vídeo (Sora, Veo, Runway, Kling), citando estilo, luz, câmera e movimento.
+4. ## Áudio e trilha — sugestões de narração, locução e música.
+Português (só os prompts de geração em inglês).`;
+const CODE_PROMPT = t => `Você é um desenvolvedor sênior. Implemente e responda com CÓDIGO COMPLETO E FUNCIONAL para: "${t}".
+Formato OBRIGATÓRIO:
+1. Máximo 2 frases explicando a solução.
+2. O código inteiro em UM ÚNICO bloco de código markdown, com a linguagem declarada — sem trechos incompletos e sem frases tipo "resto da implementação aqui".
+3. "Como rodar" em até 4 bullets.
+Se o pedido couber em um único arquivo HTML/CSS/JS standalone, prefira essa entrega (roda com duplo-clique). Comentários e explicações em português.`;
 
 async function send() {
   const input = $('input');
@@ -825,10 +864,12 @@ async function send() {
   let display = text, api = text, kind = null;
   if (mode === 'document') { display = '📄 Criar documento: ' + text; api = DOC_PROMPT(text); kind = 'document'; }
   if (mode === 'presentation') { display = '📊 Criar apresentação: ' + text; api = PRES_PROMPT(text); kind = 'presentation'; }
+  if (mode === 'video') { display = '🎬 Criar vídeo: ' + text; api = VIDEO_PROMPT(text); kind = 'video'; }
+  if (mode === 'code') { display = '💻 Criar código: ' + text; api = CODE_PROMPT(text); kind = 'code'; }
 
   renderConvList();
   const userMsg = { id: 'm' + Date.now(), role: 'user', content: display };
-  const asstMsg = { id: 'm' + (Date.now() + 1), role: 'assistant', content: '', model: $('modelSelect').value, streaming: true, kind: isCreation ? kind : undefined };
+  const asstMsg = { id: 'm' + (Date.now() + 1), role: 'assistant', content: '', model: $('modelSelect').value, streaming: true, kind: isCreation ? kind : undefined, topic: isCreation ? text : undefined };
   conv.messages.push(userMsg, asstMsg);
   conv.updatedAt = new Date().toISOString();
   $('welcome').style.display = 'none';
@@ -850,6 +891,8 @@ async function send() {
           role: m.role,
           content: (m.role === 'user' && /📄 Criar documento: /.test(m.content)) ? DOC_PROMPT(m.content.replace('📄 Criar documento: ', ''))
             : (m.role === 'user' && /📊 Criar apresentação: /.test(m.content)) ? PRES_PROMPT(m.content.replace('📊 Criar apresentação: ', ''))
+            : (m.role === 'user' && /🎬 Criar vídeo: /.test(m.content)) ? VIDEO_PROMPT(m.content.replace('🎬 Criar vídeo: ', ''))
+            : (m.role === 'user' && /💻 Criar código: /.test(m.content)) ? CODE_PROMPT(m.content.replace('💻 Criar código: ', ''))
             : m.content,
         })),
         stream: true,
@@ -945,13 +988,21 @@ function setGenerating(on) {
 }
 
 // ================= Modos de criação =================
+const MODE_META = {
+  document:     { label: '📄 Documento',      ph: 'Tema do documento… (ex: política de reembolso da empresa)' },
+  presentation: { label: '📊 Apresentação',   ph: 'Tema da apresentação… (ex: resultados do trimestre)' },
+  video:        { label: '🎬 Vídeo',          ph: 'Descreva o vídeo… (ex: anúncio de 30s de uma cafeteria)' },
+  code:         { label: '💻 Código',         ph: 'O que você quer programar? (ex: app de lista de tarefas em HTML)' },
+};
 function setMode(m) {
   mode = m;
+  document.querySelectorAll('.tool-btn[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
   const bar = $('modeBar');
   if (!m) { bar.classList.remove('show'); return; }
-  $('modeLabel').textContent = m === 'document' ? '📄 Documento' : '📊 Apresentação';
+  const meta = MODE_META[m];
+  $('modeLabel').textContent = meta.label;
   bar.classList.add('show');
-  $('input').placeholder = m === 'document' ? 'Tema do documento… (ex: política de reembolso da empresa)' : 'Tema da apresentação… (ex: resultados do trimestre)';
+  $('input').placeholder = meta.ph;
   $('input').focus();
 }
 
@@ -1447,18 +1498,23 @@ $('projClose').onclick = () => $('projOverlay').classList.remove('open');
 $('projOverlay').addEventListener('click', e => { if (e.target === $('projOverlay')) $('projOverlay').classList.remove('open'); });
 $('projAdd').onclick = addProject;
 $('projName').addEventListener('keydown', e => { if (e.key === 'Enter') addProject(); });
-$('btnImage').onclick = openImageModal;
+document.querySelectorAll('.tool-btn[data-mode]').forEach(b => {
+  b.onclick = () => {
+    const t = b.dataset.mode;
+    if (t === 'image') openImageModal();
+    else if (t === 'chat') setMode(null);
+    else setMode(mode === t ? null : t);
+  };
+});
 $('imageClose').onclick = () => $('imageOverlay').classList.remove('open');
 $('imgGenerate').onclick = runImage;
-$('btnDocument').onclick = () => { setMode(mode === 'document' ? null : 'document'); };
-$('btnPresentation').onclick = () => { setMode(mode === 'presentation' ? null : 'presentation'); };
 $('modeOff').onclick = () => setMode(null);
-document.querySelectorAll('.welcome .tool-hint').forEach(el => {
+document.querySelectorAll('.welcome .tile').forEach(el => {
   el.onclick = () => {
-    const t = el.dataset.open;
+    const t = el.dataset.tile;
     if (t === 'image') openImageModal();
+    else if (t === 'chat') setMode(null);
     else setMode(t);
-    $('input').focus();
   };
 });
 $('deckPrev').onclick = () => deckNav(-1);
@@ -1487,6 +1543,11 @@ document.addEventListener('click', e => {
     else if (a === 'doc-md') { download(title + '.md', m.content, 'text/markdown'); toast('.md baixado'); }
     else if (a === 'doc-print') { window.open('about:blank').document.write(buildDocHTML(m.content, title) + '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>'); }
     else if (a === 'doc-deck') { download(title + '.html', fullDeckFile(title, m.content), 'text/html'); toast('Apresentação baixada'); }
+    else if (a === 'code-download') {
+      const mm = m.content.match(/```[\w+#-]*\n([\s\S]*?)```/);
+      if (mm) { download(title + '.' + (act.dataset.ext || 'txt'), mm[1]); toast('Código baixado (.' + (act.dataset.ext || 'txt') + ')'); }
+      else toast('⚠️ Nenhum bloco de código encontrado');
+    }
     else if (a === 'pres-play') { openDeck(m); }
     else if (a === 'img-download') {
       const aEl = document.createElement('a');
