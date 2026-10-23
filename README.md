@@ -37,7 +37,7 @@ Isso cria `portable\LocalAIServer-Portable\` (~95 MB, já inclui o `node.exe`):
 
 > **No PC sem Node** (ou preguiça de gerar): baixe o arquivo pronto em
 > [Releases](https://github.com/luizhenriqueamadeu/local-ai-server/releases/latest) →
-> `LocalAIServer-portable-v1.2.0.zip` (35 MB comprimido) → extraia → `Iniciar.bat`.
+> `LocalAIServer-portable-v1.3.0.zip` (35 MB comprimido) → extraia → `Iniciar.bat`.
 
 ```
 LocalAIServer-Portable\

@@ -558,7 +558,7 @@ app.get('/', (req, res) => {
   if (existsSync(chatPage)) return res.sendFile(chatPage);
   res.json({
     name: 'Local AI Server',
-    version: '1.2.0',
+    version: '1.3.0',
     description: 'OpenAI-compatible API server with automatic model rotation',
     endpoints: {
       chat: '/v1/chat/completions',
