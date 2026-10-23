@@ -235,7 +235,7 @@
         <div class="mode-bar" id="modeBar">
           <span id="modeLabel" class="pattern">📄 Documento</span>
           <button id="modeOff" title="Sair do modo">✕</button>
-          <span style="color:var(--muted)">escreva o tema e envie</span>
+          <span id="modeHint" style="color:var(--muted)">escreva o tema e envie</span>
         </div>
         <div class="tools-row">
           <button class="tool-btn" data-mode="chat" title="Conversa livre">💬 Chat</button>
@@ -291,6 +291,22 @@
     </div>
     <div class="modal-foot">
       <button class="btn primary" id="imgGenerate">Gerar imagem</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mode options modal (Vídeo / Código / Documento / Apresentação) -->
+<div class="overlay" id="modeOverlay">
+  <div class="modal small">
+    <div class="modal-head"><h3 id="modeTitle">Modo</h3><button class="icon-btn" id="modeX">✕</button></div>
+    <div class="modal-body">
+      <div class="pc-note" id="modeNote"></div>
+      <div id="modeFields"></div>
+      <div class="pc-note" style="margin-top:6px">Depois é só escrever o tema na caixa principal e enviar. As escolhas ficam salvas até mudar.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="modeCancel">Cancelar</button>
+      <button class="btn primary" id="modeOk">Continuar</button>
     </div>
   </div>
 </div>
@@ -832,25 +848,29 @@ function updateMsgDOM(m, conv) {
 }
 
 // ================= Sending =================
-const DOC_PROMPT = t => `Crie um DOCUMENTO COMPLETO, profissional e pronto para uso sobre: "${t}".
+const DOC_PROMPT = (t, o = {}) => `Crie um DOCUMENTO COMPLETO, profissional e pronto para uso sobre: "${t}".
+Tipo: ${o.tipo || 'Relatório'}. Tom: ${o.tom || 'Neutro'}. Extensão alvo: ${o.tamanho || 'Médio (~3 páginas)'}.
 Responda SOMENTE com o conteúdo do documento em Markdown (sem frases como "claro, aqui está").
 Estrutura: título principal (#), resumo executivo curto, seções bem organizadas (##), listas e tabelas quando ajudar, e uma conclusão. Português.`;
-const PRES_PROMPT = t => `Crie uma APRESENTAÇÃO de slides sobre: "${t}".
+const PRES_PROMPT = (t, o = {}) => `Crie uma APRESENTAÇÃO de slides sobre: "${t}".
+Formato: ${o.estilo || 'Executivo (direto)'}. Público: ${o.publico || 'Equipe interna'}. Quantidade: ${o.slides || '8 slides'}.
 FORMATO OBRIGATÓRIO: um slide por bloco, cada slide começa com "## Título do Slide" seguido de 3-6 bullets curtos ("-" e "•") — sem parágrafos longos.
-Inclua de 7 a 10 slides: título (+# Subtítulo/autor), agenda, conteúdo principal, conclusão e encerramento. Português.`;
-const VIDEO_PROMPT = t => `Crie um ROTEIRO DE VÍDEO profissional sobre: "${t}".
+Inclua slide de título (+# Subtítulo/autor), agenda, conteúdo principal, conclusão e encerramento. Português.`;
+const VIDEO_PROMPT = (t, o = {}) => `Crie um ROTEIRO DE VÍDEO profissional sobre: "${t}".
+Briefing: duração ${o.dur || '30 segundos'}, formato ${o.formato || '16:9 — horizontal (YouTube)'}, estilo de direção ${o.estilo || 'Publicitário'}${o.gerador && o.gerador !== 'Genérico (qualquer gerador)' ? `, roteirizado para gerar no ${o.gerador}` : ''}.
 Responda SOMENTE com o roteiro em Markdown (sem preâmbulo). Estrutura OBRIGATÓRIA:
 1. # Título do vídeo + uma linha de descrição/gancho.
-2. ## Storyboard — tabela com colunas CENA | DURAÇÃO | IMAGEM/AÇÃO | NARRAÇÃO/TEXTO, com 8 a 12 cenas.
-3. ## Prompts de geração — um bloco de código por ato (início, meio, fim), cada um com prompt em INGLÊS pronto para colar em geradores de vídeo (Sora, Veo, Runway, Kling), citando estilo, luz, câmera e movimento.
+2. ## Storyboard — tabela com colunas CENA | DURAÇÃO | IMAGEM/AÇÃO | NARRAÇÃO/TEXTO, respeitando a duração total.
+3. ## Prompts de geração — um bloco de código por ato (início, meio, fim), cada um com prompt em INGLÊS pronto para colar em geradores de vídeo (Sora, Veo, Runway, Kling), citando estilo, luz, câmera, proporção ${o.formato || '16:9'} e movimento.
 4. ## Áudio e trilha — sugestões de narração, locução e música.
 Português (só os prompts de geração em inglês).`;
-const CODE_PROMPT = t => `Você é um desenvolvedor sênior. Implemente e responda com CÓDIGO COMPLETO E FUNCIONAL para: "${t}".
+const CODE_PROMPT = (t, o = {}) => `Você é um desenvolvedor sênior. Implemente e responda com CÓDIGO COMPLETO E FUNCIONAL para: "${t}".
+Tecnologia: ${o.alvo || 'HTML+CSS+JS (1 arquivo, roda com duplo-clique)'}. Nível: ${o.nivel || 'Enxuto (só o essencial)'}.
 Formato OBRIGATÓRIO:
 1. Máximo 2 frases explicando a solução.
 2. O código inteiro em UM ÚNICO bloco de código markdown, com a linguagem declarada — sem trechos incompletos e sem frases tipo "resto da implementação aqui".
 3. "Como rodar" em até 4 bullets.
-Se o pedido couber em um único arquivo HTML/CSS/JS standalone, prefira essa entrega (roda com duplo-clique). Comentários e explicações em português.`;
+Se a tecnologia for HTML+CSS+JS, entregue um único arquivo standalone que roda com duplo-clique. Comentários e explicações em português.`;
 
 async function send() {
   const input = $('input');
@@ -861,14 +881,15 @@ async function send() {
   const conv = getActive();
 
   const isCreation = mode !== null;
+  const curOpts = isCreation ? (modeOpts[mode] || {}) : {};
   let display = text, api = text, kind = null;
-  if (mode === 'document') { display = '📄 Criar documento: ' + text; api = DOC_PROMPT(text); kind = 'document'; }
-  if (mode === 'presentation') { display = '📊 Criar apresentação: ' + text; api = PRES_PROMPT(text); kind = 'presentation'; }
-  if (mode === 'video') { display = '🎬 Criar vídeo: ' + text; api = VIDEO_PROMPT(text); kind = 'video'; }
-  if (mode === 'code') { display = '💻 Criar código: ' + text; api = CODE_PROMPT(text); kind = 'code'; }
+  if (mode === 'document') { display = '📄 Criar documento: ' + text; api = DOC_PROMPT(text, curOpts); kind = 'document'; }
+  if (mode === 'presentation') { display = '📊 Criar apresentação: ' + text; api = PRES_PROMPT(text, curOpts); kind = 'presentation'; }
+  if (mode === 'video') { display = '🎬 Criar vídeo: ' + text; api = VIDEO_PROMPT(text, curOpts); kind = 'video'; }
+  if (mode === 'code') { display = '💻 Criar código: ' + text; api = CODE_PROMPT(text, curOpts); kind = 'code'; }
 
   renderConvList();
-  const userMsg = { id: 'm' + Date.now(), role: 'user', content: display };
+  const userMsg = { id: 'm' + Date.now(), role: 'user', content: display, opts: isCreation ? curOpts : undefined };
   const asstMsg = { id: 'm' + (Date.now() + 1), role: 'assistant', content: '', model: $('modelSelect').value, streaming: true, kind: isCreation ? kind : undefined, topic: isCreation ? text : undefined };
   conv.messages.push(userMsg, asstMsg);
   conv.updatedAt = new Date().toISOString();
@@ -889,10 +910,10 @@ async function send() {
         model: $('modelSelect').value,
         messages: conv.messages.filter(m => !m.streaming && m.kind !== 'image').map(m => ({
           role: m.role,
-          content: (m.role === 'user' && /📄 Criar documento: /.test(m.content)) ? DOC_PROMPT(m.content.replace('📄 Criar documento: ', ''))
-            : (m.role === 'user' && /📊 Criar apresentação: /.test(m.content)) ? PRES_PROMPT(m.content.replace('📊 Criar apresentação: ', ''))
-            : (m.role === 'user' && /🎬 Criar vídeo: /.test(m.content)) ? VIDEO_PROMPT(m.content.replace('🎬 Criar vídeo: ', ''))
-            : (m.role === 'user' && /💻 Criar código: /.test(m.content)) ? CODE_PROMPT(m.content.replace('💻 Criar código: ', ''))
+          content: (m.role === 'user' && /📄 Criar documento: /.test(m.content)) ? DOC_PROMPT(m.content.replace('📄 Criar documento: ', ''), m.opts)
+            : (m.role === 'user' && /📊 Criar apresentação: /.test(m.content)) ? PRES_PROMPT(m.content.replace('📊 Criar apresentação: ', ''), m.opts)
+            : (m.role === 'user' && /🎬 Criar vídeo: /.test(m.content)) ? VIDEO_PROMPT(m.content.replace('🎬 Criar vídeo: ', ''), m.opts)
+            : (m.role === 'user' && /💻 Criar código: /.test(m.content)) ? CODE_PROMPT(m.content.replace('💻 Criar código: ', ''), m.opts)
             : m.content,
         })),
         stream: true,
@@ -988,19 +1009,81 @@ function setGenerating(on) {
 }
 
 // ================= Modos de criação =================
+// ================= Modos de criação =================
 const MODE_META = {
   document:     { label: '📄 Documento',      ph: 'Tema do documento… (ex: política de reembolso da empresa)' },
   presentation: { label: '📊 Apresentação',   ph: 'Tema da apresentação… (ex: resultados do trimestre)' },
   video:        { label: '🎬 Vídeo',          ph: 'Descreva o vídeo… (ex: anúncio de 30s de uma cafeteria)' },
   code:         { label: '💻 Código',         ph: 'O que você quer programar? (ex: app de lista de tarefas em HTML)' },
 };
+
+const MODE_OPTS_DEF = {
+  document: {
+    note: 'Vou perguntar umas coisas rápidas para calibrar o documento.',
+    fields: [
+      { key: 'tipo',   label: 'Tipo',     type: 'select', opts: ['Relatório', 'Manual / tutorial', 'Política / regulamento', 'Contrato / termo', 'Artigo / post', 'E-mail / carta'] },
+      { key: 'tom',    label: 'Tom',      type: 'select', opts: ['Formal', 'Neutro', 'Amigável', 'Técnico'] },
+      { key: 'tamanho', label: 'Tamanho', type: 'select', opts: ['Curto (~1 página)', 'Médio (~3 páginas)', 'Longo (completo)'] },
+    ],
+  },
+  presentation: {
+    note: 'Diga o formato e a apresentação já sai no ponto.',
+    fields: [
+      { key: 'slides',  label: 'Nº de slides', type: 'select', opts: ['6 slides', '8 slides', '10 slides', '12 slides'] },
+      { key: 'estilo',  label: 'Estilo',       type: 'select', opts: ['Executivo (direto)', 'Educativo (passo a passo)', 'Comercial (vendas)', 'Traquinado (startup)'] },
+      { key: 'publico', label: 'Público',      type: 'select', opts: ['Equipe interna', 'Clientes', 'Investidores', 'Alunos / público geral'] },
+    ],
+  },
+  video: {
+    note: 'Só configurar o briefing: o roteiro sai com storyboard e prompts prontos para o gerador escolhido.',
+    fields: [
+      { key: 'dur',     label: 'Duração', type: 'select', opts: ['15 segundos', '30 segundos', '60 segundos', '90 segundos'] },
+      { key: 'formato', label: 'Formato', type: 'select', opts: ['16:9 — horizontal (YouTube)', '9:16 — vertical (Reels/TikTok)', '1:1 — quadrado (feed)'] },
+      { key: 'estilo',  label: 'Estilo',  type: 'select', opts: ['Publicitário', 'Cinematográfico', 'Reels/TikTok energético', 'Tutorial / explicativo', 'Institucional'] },
+      { key: 'gerador', label: 'Vai gerar no', type: 'select', opts: ['Genérico (qualquer gerador)', 'Sora (OpenAI)', 'Veo (Google)', 'Runway', 'Kling'] },
+    ],
+  },
+  code: {
+    note: 'Escolha a tecnologia e o nível — o código sai completo e com botão para baixar o arquivo.',
+    fields: [
+      { key: 'alvo', label: 'Tecnologia', type: 'select', opts: ['HTML+CSS+JS (1 arquivo, roda com duplo-clique)', 'Python', 'Node.js', 'PowerShell', 'C# (console)', 'Outro (diga no tema)'] },
+      { key: 'nivel', label: 'Nível',     type: 'select', opts: ['Enxuto (só o essencial)', 'Completo (comentado e validação de erros)'] },
+    ],
+  },
+};
+
+let modeOpts = {};      // { video: {dur:'30 segundos', ...}, ... }
+let pendingMode = null; // modo aguardando confirmação no modal
+
+function openModeModal(m) {
+  pendingMode = m;
+  const def = MODE_OPTS_DEF[m];
+  $('modeTitle').textContent = MODE_META[m].label + ' — opções';
+  $('modeNote').textContent = def.note;
+  const saved = modeOpts[m] || {};
+  $('modeFields').innerHTML = def.fields.map(f => {
+    const cur = saved[f.key] || f.opts[0];
+    return `<div class="frow"><label>${esc(f.label)}</label><select data-mopt="${f.key}">${f.opts.map(o => `<option${o === cur ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
+  }).join('');
+  $('modeOverlay').classList.add('open');
+}
+
+function collectModeModal() {
+  const opts = {};
+  $('modeFields').querySelectorAll('select[data-mopt]').forEach(s => { opts[s.dataset.mopt] = s.value; });
+  modeOpts[pendingMode] = opts;
+}
+
 function setMode(m) {
   mode = m;
   document.querySelectorAll('.tool-btn[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
   const bar = $('modeBar');
   if (!m) { bar.classList.remove('show'); return; }
   const meta = MODE_META[m];
+  const o = modeOpts[m] || {};
+  const sum = MODE_OPTS_DEF[m].fields.map(f => o[f.key]).filter(Boolean).slice(0, 3).join(' · ');
   $('modeLabel').textContent = meta.label;
+  bar.querySelector('#modeHint').textContent = (sum ? sum + ' — ' : '') + 'escreva o tema e envie';
   bar.classList.add('show');
   $('input').placeholder = meta.ph;
   $('input').focus();
@@ -1503,9 +1586,14 @@ document.querySelectorAll('.tool-btn[data-mode]').forEach(b => {
     const t = b.dataset.mode;
     if (t === 'image') openImageModal();
     else if (t === 'chat') setMode(null);
-    else setMode(mode === t ? null : t);
+    else if (mode === t) setMode(null);               // clicar de novo desliga
+    else openModeModal(t);
   };
 });
+$('modeOk').onclick = () => { const m = pendingMode; collectModeModal(); $('modeOverlay').classList.remove('open'); setMode(m); };
+$('modeCancel').onclick = () => $('modeOverlay').classList.remove('open');
+$('modeX').onclick = () => $('modeOverlay').classList.remove('open');
+$('modeOverlay').addEventListener('click', e => { if (e.target === $('modeOverlay')) $('modeOverlay').classList.remove('open'); });
 $('imageClose').onclick = () => $('imageOverlay').classList.remove('open');
 $('imgGenerate').onclick = runImage;
 $('modeOff').onclick = () => setMode(null);
@@ -1514,7 +1602,7 @@ document.querySelectorAll('.welcome .tile').forEach(el => {
     const t = el.dataset.tile;
     if (t === 'image') openImageModal();
     else if (t === 'chat') setMode(null);
-    else setMode(t);
+    else openModeModal(t);
   };
 });
 $('deckPrev').onclick = () => deckNav(-1);
