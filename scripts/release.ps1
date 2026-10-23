@@ -68,7 +68,7 @@ BumpPairs "$ProjectRoot\README.md" @(
 )
 
 Write-Host "=== 2/6 Sync D:\LOCALIA -> D:\gitwork + commit + push ==="
-robocopy $ProjectRoot $GitWork /MIR /XD .git portable node_modules /R:1 /W:1 /NJH /NDL /NDL /NP /XL | Out-Null
+robocopy $ProjectRoot $GitWork /MIR /XD .git portable node_modules /R:1 /W:1 /NJH /NDL /NDL /NP | Out-Null
 if ($LASTEXITCODE -gt 7) { throw "robocopy falhou com rc=$LASTEXITCODE" }
 GitRun -C $GitWork add -A
 GitRun -C $GitWork commit -m ("Release v{0}: changelog e package" -f $PlainVer)
